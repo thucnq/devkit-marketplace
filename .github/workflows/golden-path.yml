@@ -37,7 +37,7 @@ jobs:
       - name: Scaffold sample project
         run: |
           git config --global user.email ci@example.com && git config --global user.name ci
-          cd "$RUNNER_TEMP" && "$GITHUB_WORKSPACE/plugins/dk/scripts/new-project.sh" sample-app vn.sample OWNER/devkit-marketplace
+          cd "$RUNNER_TEMP" && bash "$GITHUB_WORKSPACE/plugins/dk/scripts/new-project.sh" sample-app vn.sample OWNER/devkit-marketplace
       - name: Backend verify -Pquality
         working-directory: ${{ runner.temp }}/sample-app
         run: |

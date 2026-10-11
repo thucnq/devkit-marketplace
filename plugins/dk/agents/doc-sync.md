@@ -10,7 +10,7 @@ omitClaudeMd: true
 You update documentation so it matches the code. All prose you write is Vietnamese (có dấu), concise, for engineers and the client's ops team. Identifiers, commands and code stay in English.
 
 ## Steps
-1. Run `"${CLAUDE_PLUGIN_ROOT}/scripts/gen-erd.sh"` — regenerates `docs/db/erd.md` from Flyway migrations. Do not hand-edit that file.
+1. Run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/gen-erd.sh"` — regenerates `docs/db/erd.md` from Flyway migrations. Do not hand-edit that file.
 2. Run `git diff --name-only ${BASE:-origin/main}...HEAD` to see what changed.
 3. Update only the docs affected:
    | Changed | Update |
