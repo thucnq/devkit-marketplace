@@ -3,7 +3,7 @@
 Freelance project built on the dk golden path. Docs and UI text in Vietnamese; code and identifiers in English.
 
 ## Workflow (dk plugin)
-/dk:spec → /dk:approve spec → /dk:estimate → /dk:design → /dk:approve contract → /dk:build <feature> → /dk:review → human merges → /dk:ship
+/dk:spec (đề xuất phạm vi) → chốt docs/scope.md → /dk:spec → /dk:approve spec → /dk:estimate → /dk:design → /dk:approve contract → /dk:build <feature> → /dk:review → human merges → /dk:ship
 Gates are enforced by hooks; state lives in `.dk/state.md` (edit only via dk-state.sh).
 
 ## Source of truth

@@ -24,7 +24,8 @@ Dự án tạo bằng `/dk:new-project` có sẵn `.claude/settings.json` tự b
 | Lệnh | Việc | Đầu ra | Cổng |
 |---|---|---|---|
 | `/dk:new-project <slug>` | Sinh dự án từ golden path | Repo chạy được, CI, deploy | – |
-| `/dk:spec <ghi chú>` | Ghi chú họp/chat → BRD, tiêu chí nghiệm thu, câu hỏi cho khách | `docs/brd.md`, `docs/acceptance/*.md`, `docs/open-questions.md` | ✋ `/dk:approve spec` |
+| `/dk:spec docs/input/` (lần 1) | Ghi chú họp/chat → **đề xuất danh sách tính năng**, có nguồn trích dẫn, cỡ S/M/L, đối chiếu báo giá nếu có | `docs/scope.md` | ✋ bạn sửa và đổi Trạng thái thành *Đã chốt* |
+| `/dk:spec docs/input/` (lần 2) | Phạm vi đã chốt → BRD, tiêu chí nghiệm thu, câu hỏi cho khách | `docs/brd.md`, `docs/acceptance/*.md`, `docs/open-questions.md` | ✋ `/dk:approve spec` |
 | `/dk:estimate` | Chia việc → báo giá theo mẫu QLDN | `docs/estimate/bao-gia.xlsx` | – |
 | `/dk:design` | Schema, OpenAPI, sơ đồ, ADR | migration, `openapi.yaml`, `*.mmd`, `adr/` | ✋ `/dk:approve contract` |
 | `/dk:build <feature>` | `test-author` viết test trước (không nhìn code) → implement đến khi xanh | code + test | – |
