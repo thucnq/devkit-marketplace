@@ -45,9 +45,19 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with: { fetch-depth: 0 }
-      - uses: gitleaks/gitleaks-action@v2
+      # gitleaks CLI instead of gitleaks-action: the action calls the PR API (needs extra token
+      # permissions, fails on pull_request with contents:read) and runs on deprecated Node 20.
+      - name: gitleaks
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_VERSION: 8.30.1
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" | tar xz gitleaks
+          if [ -n "$BASE" ] && [ "$BASE" != "0000000000000000000000000000000000000000" ] && git cat-file -e "$BASE" 2>/dev/null; then
+            ./gitleaks git --redact --no-banner --exit-code 1 --log-opts="$BASE..HEAD" .
+          else
+            ./gitleaks git --redact --no-banner --exit-code 1 .
+          fi
 
   backend:
     needs: changes
