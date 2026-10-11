@@ -65,6 +65,21 @@ def prod_hosts(root: Path) -> set[str]:
     return hosts
 
 
+def push_dir(flat: str, root: Path) -> Path:
+    """Directory the push actually runs in: `git -C <dir>` or the last `cd <dir>` before it."""
+    before = flat.partition("git push")[0]
+    m = re.search(r"git\s+-C\s+(\S+)\s*$", before.rstrip())
+    target = m.group(1) if m else None
+    if target is None:
+        cds = re.findall(r"(?:^|[;&|]\s*)cd\s+(\S+)", before)
+        target = cds[-1] if cds else None
+    if not target:
+        return root
+    p = Path(os.path.expanduser(target.strip("'\"")))
+    p = p if p.is_absolute() else root / p
+    return p if p.is_dir() else root
+
+
 def check_bash(cmd: str, root: Path) -> None:
     flat = " ".join(cmd.split())
 
@@ -92,7 +107,7 @@ def check_bash(cmd: str, root: Path) -> None:
         push_args = re.split(r"[;&|]", flat.split("git push", 1)[1])[0].split()
         if any(re.fullmatch(r"(\+?[\w/.-]*:)?(refs/heads/)?(main|master)", a) for a in push_args):
             block("Không push thẳng lên main. Mở PR qua /dk:review.", "push_main")
-        branch = subprocess.run(["git", "branch", "--show-current"], cwd=root,
+        branch = subprocess.run(["git", "branch", "--show-current"], cwd=push_dir(flat, root),
                                 capture_output=True, text=True).stdout.strip()
         if branch in ("main", "master") and not re.search(r"--tags|\stag\b", flat):
             block("Đang ở main. Tạo nhánh feature rồi push nhánh đó.", "push_from_main")

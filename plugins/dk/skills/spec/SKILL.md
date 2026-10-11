@@ -12,8 +12,13 @@ allowed-tools: Read, Write, Edit, Glob, Bash
 ## Existing spec files
 !`ls docs/brd.md docs/acceptance/ docs/open-questions.md 2>/dev/null || true`
 
+## Input files
+!`ls -la docs/input/ 2>/dev/null || echo "docs/input/ chưa có"`
+
 ## Input
 $ARGUMENTS
+
+If the input names files or a folder that do not exist (see listing above), STOP and tell the user in Vietnamese exactly which files to add to `docs/input/` (see `docs/input/README.md`). Do not write a spec from guesses.
 
 ## Task
 Client input is always thin: a few headline features. Your value is the gap analysis a senior BA would do. Produce, all in Vietnamese:
