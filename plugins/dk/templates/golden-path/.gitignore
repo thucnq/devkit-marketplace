@@ -22,3 +22,4 @@ frontend/ios/
 docs/input/misa/*
 !docs/input/misa/.gitkeep
 docs/input/client-data/
+.dk/log/.sessions/
