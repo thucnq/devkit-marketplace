@@ -17,7 +17,7 @@ remote() { if [ "$HOST" = local ]; then (cd "$DIR" && bash -c "$1"); else ssh -o
 copy() { if [ "$HOST" = local ]; then mkdir -p "$DIR" && cp "$@" "$DIR/"; else ssh "$HOST" "mkdir -p '$DIR'" && scp -q "$@" "$HOST:$DIR/"; fi; }
 
 if [ "$ACTION" = "--verify-backup" ]; then
-  remote "./backup.sh && ./restore-check.sh"
+  remote "sh ./backup.sh && sh ./restore-check.sh"
   exit $?
 fi
 

@@ -104,7 +104,7 @@ def check_bash(cmd: str, root: Path) -> None:
     # 4. Pre-commit gate (deterministic checks, no tokens).
     if re.search(r"\bgit\s+commit\b", flat) and (root / ".dk").is_dir():
         mode = "precommit-strict" if os.environ.get("CLAUDE_PLUGIN_OPTION_STRICT_GATES", "true") != "false" else "precommit"
-        r = subprocess.run([str(PLUGIN_ROOT / "scripts" / "dk-check.sh"), mode], cwd=root,
+        r = subprocess.run(["bash", str(PLUGIN_ROOT / "scripts" / "dk-check.sh"), mode], cwd=root,
                            capture_output=True, text=True)
         if r.returncode != 0:
             tail = "\n".join((r.stdout + r.stderr).strip().splitlines()[-25:])

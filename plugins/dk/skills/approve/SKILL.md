@@ -7,6 +7,6 @@ disable-model-invocation: true
 allowed-tools: Bash
 ---
 
-!`"${CLAUDE_PLUGIN_ROOT}/scripts/dk-state.sh" approve "$gate"`
+!`bash "${CLAUDE_PLUGIN_ROOT}/scripts/dk-state.sh" approve "$gate"`
 
 Repeat the line above to the user verbatim and stop. If it says approved, mention the next command (`spec` → `/dk:estimate` then `/dk:design`; `contract` → `/dk:build <feature>`).
