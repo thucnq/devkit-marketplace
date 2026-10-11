@@ -7,7 +7,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 ---
 
 ## Gate
-!`bash "${CLAUDE_PLUGIN_ROOT}/scripts/dk-state.sh" require spec`
+!`bash "${CLAUDE_PLUGIN_ROOT}/scripts/dk-state.sh" require spec 2>&1`
 
 ## Existing design
 !`ls backend/src/main/resources/db/migration/ docs/adr/ docs/diagrams/ 2>/dev/null || true`
