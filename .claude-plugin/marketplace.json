@@ -1,0 +1,17 @@
+{
+  "name": "thuc-devkit",
+  "owner": {
+    "name": "Nguyen Quy Thuc",
+    "email": "thucnguyenquy@gmail.com"
+  },
+  "metadata": {
+    "description": "Internal plugins for freelance delivery (Java 21 / Spring Boot / Postgres / React)"
+  },
+  "plugins": [
+    {
+      "name": "dk",
+      "source": "./plugins/dk",
+      "description": "Delivery Kit: spec → estimate → design → build → review → ship, with deterministic quality gates"
+    }
+  ]
+}

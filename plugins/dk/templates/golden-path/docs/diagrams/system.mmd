@@ -1,0 +1,17 @@
+%% Sơ đồ hệ thống (mức container). Cập nhật bởi /dk:design và agent doc-sync.
+flowchart LR
+  user([Người dùng<br/>trình duyệt / app Capacitor])
+  google[[Google OAuth]]
+  subgraph vm[Máy chủ / máy trạm khách hàng — Docker Compose]
+    caddy[Caddy<br/>HTTPS, file tĩnh React]
+    api[API Spring Boot 3<br/>Java 21]
+    db[(PostgreSQL 17<br/>RLS theo tenant)]
+    files[(Volume file mã hóa)]
+  end
+  backup[(Bản sao lưu ngoài máy<br/>rclone)]
+  user -->|HTTPS| caddy
+  caddy -->|/api/*| api
+  api --> db
+  api --> files
+  api -.->|SSO| google
+  db -.->|pg_dump hằng ngày| backup

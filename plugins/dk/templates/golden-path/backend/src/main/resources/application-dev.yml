@@ -1,0 +1,23 @@
+# Local development defaults — NOT secrets. Production gets real values from deploy/envs/*.env
+# and fails to start if any is missing (no defaults in application.yml).
+spring:
+  datasource:
+    password: app_rw_dev
+  flyway:
+    password: goldenpath_dev
+    placeholders:
+      app_rw_password: app_rw_dev
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+
+app:
+  security:
+    jwt-secret: ZGV2LW9ubHktand0LXNlY3JldC1jaGFuZ2UtbWUtaW4tZXZlcnktZW52aXJvbm1lbnQh
+    cookie-secure: false
+  pii:
+    key: ZGV2LW9ubHktcGlpLWtleS0zMi1ieXRlcy1sb25nISE=
+    hash-key: ZGV2LW9ubHktaGFzaC1rZXktMzItYnl0ZXMtbG9uZyE=

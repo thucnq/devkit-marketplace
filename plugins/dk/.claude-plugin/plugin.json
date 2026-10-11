@@ -1,0 +1,47 @@
+{
+  "name": "dk",
+  "displayName": "Delivery Kit",
+  "version": "0.2.0",
+  "description": "Freelance delivery workflow for Java 21/Spring Boot + Postgres + React: Vietnamese docs-as-code, test-first build, independent review, zero-token quality gates.",
+  "author": {
+    "name": "Nguyen Quy Thuc",
+    "email": "thucnguyenquy@gmail.com"
+  },
+  "license": "UNLICENSED",
+  "keywords": [
+    "spring-boot",
+    "react",
+    "freelance",
+    "docs-as-code",
+    "quality-gates"
+  ],
+  "userConfig": {
+    "hourly_rate_vnd": {
+      "type": "number",
+      "title": "Đơn giá / giờ (VNĐ)",
+      "description": "Default hourly rate used by /dk:estimate",
+      "default": 175000,
+      "min": 0
+    },
+    "overhead_pct": {
+      "type": "number",
+      "title": "PM + BA + QA overhead (%)",
+      "description": "Percent added on top of engineering man-days",
+      "default": 30,
+      "min": 0,
+      "max": 200
+    },
+    "strict_gates": {
+      "type": "boolean",
+      "title": "Strict pre-commit gates",
+      "description": "Run unit tests + ArchUnit before every git commit (off = only secret scan)",
+      "default": true
+    },
+    "marketplace_repo": {
+      "type": "string",
+      "title": "Marketplace GitHub repo",
+      "description": "owner/repo of this marketplace, written into new projects' .claude/settings.json so teammates get the plugin automatically",
+      "default": "OWNER/devkit-marketplace"
+    }
+  }
+}

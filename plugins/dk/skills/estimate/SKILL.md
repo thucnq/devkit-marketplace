@@ -1,0 +1,26 @@
+---
+name: estimate
+description: Build the work breakdown and the client quote (.xlsx, same layout as the QLDN quote) from the BRD and acceptance criteria.
+argument-hint: "[notes: rate, team size, infra option, payment terms]"
+disable-model-invocation: true
+allowed-tools: Read, Write, Edit, Bash
+---
+
+## Scope
+!`grep -h "^### AC-" docs/acceptance/*.md 2>/dev/null | wc -l | xargs echo "Total ACs:"`
+!`grep -c "Bắt buộc" docs/acceptance/*.md 2>/dev/null || true`
+
+Extra instructions from the user: $ARGUMENTS
+
+## Task
+1. Read `docs/brd.md` and `docs/acceptance/*.md`.
+2. Write `docs/estimate/items.json` following `${CLAUDE_PLUGIN_ROOT}/skills/estimate/items.schema.md`. Estimation rules:
+   - 1 point = 1 engineer-day for a mid-level engineer WITH this golden path (auth, tenant, audit, CI, deploy already exist → do not price them again, except a fixed "Khởi tạo dự án & hạ tầng" item of 3 points).
+   - Price per feature from its ACs: ~0.5 point per simple AC (CRUD/validation), 1–2 per AC with business rules, 3–5 for integrations, imports, reports, or anything with an external system. Round each item to 0.5.
+   - Always add items: "Kiểm thử nghiệm thu & sửa lỗi" (15% of feature points), "Tài liệu bàn giao & đào tạo" (2–3 points), "Triển khai môi trường khách hàng" (2 points).
+   - Sensitive personal data (biometric, health, CCCD scans): add "Tuân thủ dữ liệu cá nhân nhạy cảm" (consent flow, encryption, DPIA hồ sơ đánh giá tác động) 3–5 points.
+   - Mark optional items `"optional": true` — they go orange in the sheet.
+   - Every assumption that changes price → `"open": true` with the question; they go yellow and into the "Câu hỏi cần chốt" sheet.
+3. Fill `params` from the user's instructions; otherwise leave defaults (hourly rate and overhead come from plugin config: rate=${user_config.hourly_rate_vnd}, overhead=${user_config.overhead_pct}%; if these still read as literal placeholders, the plugin is not configured — keep the schema defaults and say so).
+4. Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/gen-quote.py" docs/estimate/items.json docs/estimate/bao-gia.xlsx`.
+5. Reply in Vietnamese, max 8 lines, copying the numbers from the script's summary lines (never compute totals yourself): points, build cost, months, infra options, number of open questions, path to the file. Do NOT paste the sheet contents.

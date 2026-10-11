@@ -1,0 +1,75 @@
+spring:
+  application:
+    name: goldenpath
+  profiles:
+    default: dev
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    # The app connects as app_rw (not owner, not superuser) so Row-Level Security applies.
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/goldenpath}
+    username: ${DB_APP_USER:app_rw}
+    password: ${DB_APP_PASSWORD}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+  flyway:
+    # Migrations run as the database owner.
+    url: ${spring.datasource.url}
+    user: ${DB_OWNER_USER:goldenpath}
+    password: ${DB_OWNER_PASSWORD}
+    placeholders:
+      app_rw_password: ${DB_APP_PASSWORD}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 12MB
+  jackson:
+    default-property-inclusion: non_null
+
+server:
+  forward-headers-strategy: native
+  error:
+    include-stacktrace: never
+    include-message: never
+
+management:
+  endpoints:
+    web:
+      base-path: /api/actuator
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+
+springdoc:
+  api-docs:
+    enabled: ${APP_API_DOCS:false}
+  swagger-ui:
+    enabled: ${APP_API_DOCS:false}
+
+app:
+  security:
+    jwt-secret: ${APP_JWT_SECRET}
+    access-ttl: 15m
+    refresh-ttl: 7d
+    frontend-url: ${APP_FRONTEND_URL:http://localhost:5173}
+    cookie-secure: ${APP_COOKIE_SECURE:true}
+  pii:
+    key: ${APP_PII_KEY}
+    hash-key: ${APP_PII_HASH_KEY}
+  audit:
+    retention-months: ${APP_AUDIT_RETENTION_MONTHS:3}
+  files:
+    dir: ${APP_FILES_DIR:./data/files}

@@ -1,0 +1,51 @@
+name: golden-path
+# Proves the template every project starts from is green: scaffold it exactly like /dk:new-project,
+# then build and test it (Testcontainers runs on the hosted runner's Docker).
+on:
+  push:
+    paths: ['plugins/dk/**', '.github/workflows/golden-path.yml']
+  pull_request:
+    paths: ['plugins/dk/**']
+  workflow_dispatch:
+
+concurrency:
+  group: gp-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plugin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Script syntax
+        run: |
+          for f in plugins/dk/scripts/*.sh plugins/dk/templates/golden-path/deploy/*.sh; do bash -n "$f"; done
+          python3 -m py_compile plugins/dk/scripts/*.py
+      - name: Template traceability copy is in sync
+        run: cmp plugins/dk/scripts/ac-trace.py plugins/dk/templates/golden-path/tools/ac-trace.py
+
+  scaffold-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with: { distribution: temurin, java-version: '21', cache: maven }
+      - uses: actions/setup-node@v5
+        with: { node-version: '22' }
+      - name: Scaffold sample project
+        run: |
+          git config --global user.email ci@example.com && git config --global user.name ci
+          cd "$RUNNER_TEMP" && "$GITHUB_WORKSPACE/plugins/dk/scripts/new-project.sh" sample-app vn.sample OWNER/devkit-marketplace
+      - name: Backend verify -Pquality
+        working-directory: ${{ runner.temp }}/sample-app
+        run: |
+          MVN=mvn; [ -x ./mvnw ] && MVN=./mvnw
+          $MVN -B -ntp verify -Pquality
+      - name: Frontend checks
+        working-directory: ${{ runner.temp }}/sample-app/frontend
+        run: npm ci && npm run typecheck && npm run lint && npm test -- --run && npm run build
+      - name: Requirements traceability
+        working-directory: ${{ runner.temp }}/sample-app
+        run: python3 tools/ac-trace.py

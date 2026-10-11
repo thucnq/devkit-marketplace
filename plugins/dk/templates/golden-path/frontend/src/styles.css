@@ -1,0 +1,65 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color: #1f2933;
+  background: #f7f8fa;
+  line-height: 1.5;
+}
+main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+main.narrow {
+  max-width: 380px;
+}
+form {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+form.row {
+  grid-template-columns: 1fr auto;
+  align-items: end;
+}
+label {
+  display: grid;
+  gap: 4px;
+  font-weight: 500;
+}
+input {
+  padding: 8px 10px;
+  border: 1px solid #c5ccd6;
+  border-radius: 6px;
+  font: inherit;
+}
+input:focus-visible,
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+button,
+.button {
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 6px;
+  background: #2563eb;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  text-align: center;
+}
+button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+.button.secondary {
+  background: #fff;
+  color: #1f2933;
+  border: 1px solid #c5ccd6;
+}
+[role='alert'] {
+  color: #b91c1c;
+}

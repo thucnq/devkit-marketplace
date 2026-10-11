@@ -1,0 +1,11 @@
+# Activate with SPRING_PROFILES_ACTIVE=...,google once a Google OAuth client exists.
+# Authorized redirect URI in Google Cloud Console: https://<domain>/login/oauth2/code/google
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            scope: openid,email,profile

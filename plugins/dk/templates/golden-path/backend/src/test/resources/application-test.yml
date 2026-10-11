@@ -1,0 +1,9 @@
+app:
+  security:
+    jwt-secret: dGVzdC1vbmx5LWp3dC1zZWNyZXQtMDEyMzQ1Njc4OWFiY2RlZmdoaWo=
+    cookie-secure: false
+  pii:
+    key: dGVzdC1vbmx5LXBpaS1rZXktMzItYnl0ZXMtbG9uZyE=
+    hash-key: dGVzdC1vbmx5LWhhc2gta2V5LTMyLWJ5dGVzbG9uZyE=
+  files:
+    dir: target/test-files

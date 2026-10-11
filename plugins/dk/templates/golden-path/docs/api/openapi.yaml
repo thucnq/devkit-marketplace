@@ -1,0 +1,244 @@
+openapi: 3.1.0
+info:
+  title: goldenpath API
+  version: 0.1.0
+  description: Hợp đồng API. Nguồn sự thật cho backend, frontend (npm run gen:api) và test nghiệm thu.
+servers:
+  - url: /
+security:
+  - bearer: []
+tags:
+  - name: auth
+    description: Đăng nhập, phiên, đăng xuất
+  - name: notes
+    description: Tính năng mẫu (xóa khi bắt đầu dự án thật)
+paths:
+  /api/auth/login:
+    post:
+      tags: [auth]
+      operationId: login
+      summary: Đăng nhập bằng email/mật khẩu
+      security: []
+      x-ac: [AC-AUTH-01, AC-AUTH-02, AC-AUTH-03]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: Đăng nhập thành công; đặt cookie `rt` (HttpOnly, SameSite=Strict, Path=/api/auth)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+  /api/auth/refresh:
+    post:
+      tags: [auth]
+      operationId: refresh
+      summary: Làm mới phiên
+      security: []
+      x-ac: [AC-AUTH-04, AC-AUTH-05]
+      parameters:
+        - { name: rt, in: cookie, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Phiên mới; cookie `rt` được xoay vòng
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/auth/logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      summary: Đăng xuất
+      security: []
+      x-ac: [AC-AUTH-06]
+      parameters:
+        - { name: rt, in: cookie, required: false, schema: { type: string } }
+      responses:
+        '204': { description: 'Đã đăng xuất, cookie bị xóa' }
+  /api/auth/me:
+    get:
+      tags: [auth]
+      operationId: me
+      summary: Người dùng hiện tại
+      responses:
+        '200':
+          description: Người dùng hiện tại
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UserView' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/notes:
+    get:
+      tags: [notes]
+      operationId: listNotes
+      summary: Danh sách ghi chú
+      x-ac: [AC-NOTE-02, AC-NOTE-05]
+      parameters:
+        - { $ref: '#/components/parameters/Page' }
+        - { $ref: '#/components/parameters/Size' }
+      responses:
+        '200':
+          description: Trang ghi chú của tenant hiện tại
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotePage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [notes]
+      operationId: createNote
+      summary: Tạo ghi chú
+      x-ac: [AC-NOTE-01]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NoteRequest' }
+      responses:
+        '201':
+          description: Đã tạo
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Note' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/notes/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [notes]
+      operationId: getNote
+      summary: Xem ghi chú
+      responses:
+        '200':
+          description: Ghi chú
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Note' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [notes]
+      operationId: updateNote
+      summary: Cập nhật ghi chú
+      x-ac: [AC-NOTE-03]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NoteRequest' }
+      responses:
+        '200':
+          description: Đã cập nhật
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Note' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [notes]
+      operationId: deleteNote
+      summary: Xóa ghi chú
+      x-ac: [AC-NOTE-04]
+      responses:
+        '204': { description: Đã xóa }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+components:
+  securitySchemes:
+    bearer: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    Page: { name: page, in: query, schema: { type: integer, minimum: 0, default: 0 } }
+    Size: { name: size, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+  responses:
+    BadRequest:
+      description: Dữ liệu không hợp lệ
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+    Unauthorized:
+      description: Chưa đăng nhập hoặc phiên hết hạn
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+    Forbidden:
+      description: Không có quyền
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+    NotFound:
+      description: Không tìm thấy (kể cả khi tài nguyên thuộc tenant khác)
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+    Conflict:
+      description: Xung đột phiên bản hoặc ràng buộc dữ liệu
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+    TooManyRequests:
+      description: Quá nhiều lần thử
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+  schemas:
+    Problem:
+      type: object
+      description: RFC 9457
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              field: { type: string }
+              message: { type: string }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email, maxLength: 320 }
+        password: { type: string, maxLength: 200 }
+    UserView:
+      type: object
+      required: [id, tenantId, email, fullName, roles]
+      properties:
+        id: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        email: { type: string }
+        fullName: { type: string }
+        roles: { type: array, items: { type: string } }
+    TokenResponse:
+      type: object
+      required: [accessToken, expiresIn, user]
+      properties:
+        accessToken: { type: string }
+        expiresIn: { type: integer, description: seconds }
+        user: { $ref: '#/components/schemas/UserView' }
+    NoteRequest:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200 }
+        content: { type: string, maxLength: 10000 }
+        version: { type: integer, description: Bắt buộc khi cập nhật }
+    Note:
+      type: object
+      required: [id, title, ownerId, createdAt, updatedAt, version]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        content: { type: string }
+        ownerId: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer }
+    NotePage:
+      type: object
+      required: [items, page, size, total]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Note' } }
+        page: { type: integer }
+        size: { type: integer }
+        total: { type: integer, format: int64 }

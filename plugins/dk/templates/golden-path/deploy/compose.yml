@@ -1,0 +1,56 @@
+# Production-like stack for one project on one small VM (1 vCPU / 1-2 GB): Postgres + API + Caddy.
+# Images are built locally and loaded over SSH by deploy.sh — no registry needed.
+name: ${APP:-goldenpath}
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-app}
+      POSTGRES_USER: ${DB_OWNER_USER}
+      POSTGRES_PASSWORD: ${DB_OWNER_PASSWORD}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      retries: 10
+    deploy:
+      resources:
+        limits: { memory: 384m }
+
+  api:
+    image: ${APP:-goldenpath}-api:${TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      db: { condition: service_healthy }
+    env_file: .env
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      DB_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-app}
+      APP_FILES_DIR: /data/files
+      LOGGING_STRUCTURED_FORMAT_CONSOLE: ecs
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=70 -XX:+UseSerialGC -Xss512k
+    volumes:
+      - files:/data/files
+    deploy:
+      resources:
+        limits: { memory: 640m }
+
+  web:
+    image: ${APP:-goldenpath}-web:${TAG:-latest}
+    restart: unless-stopped
+    depends_on: [api]
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy-data:/data
+
+volumes:
+  db-data:
+  files:
+  caddy-data:

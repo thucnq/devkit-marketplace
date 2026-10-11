@@ -1,0 +1,11 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Dev/test-only keys that are public by design"
+paths = [
+  '''backend/src/main/resources/application-dev\.yml''',
+  '''backend/src/test/resources/application-test\.yml''',
+  '''deploy/envs/example\.env''',
+  '''deploy/\.env\.example''',
+]

@@ -1,0 +1,4 @@
+# Build context: project root. Expects frontend/dist (deploy.sh runs npm run build first).
+FROM caddy:2-alpine
+COPY deploy/Caddyfile /etc/caddy/Caddyfile
+COPY frontend/dist /srv
