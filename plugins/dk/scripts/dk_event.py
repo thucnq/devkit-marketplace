@@ -6,6 +6,7 @@ file contents or secrets: commands are truncated and redacted.
 
 Library: emit(root, {"ev": ...})            CLI: dk_event.py <ev> [key=value ...]
                                                   dk_event.py note   (note text on stdin)
+                                                  dk_event.py lessons [N]   last N notes tagged #lesson (all authors)
 """
 import json
 import os
@@ -75,6 +76,25 @@ def main():
     if len(sys.argv) < 2:
         sys.exit(__doc__)
     ev = sys.argv[1]
+    if ev == "lessons":
+        root = project_root()
+        if root is None:
+            return
+        found = []
+        for f in (root / ".dk" / "log").glob("*.jsonl"):
+            for line in f.read_text(encoding="utf-8", errors="ignore").splitlines():
+                if '"lesson"' not in line:
+                    continue
+                try:
+                    e = json.loads(line)
+                except Exception:
+                    continue
+                if e.get("ev") == "note" and "lesson" in (e.get("tags") or []):
+                    found.append((e.get("ts", ""), re.sub(r"\s*#lesson\b", "", e.get("text", "")).strip()))
+        n = int(sys.argv[2]) if len(sys.argv) > 2 else 5
+        for ts, text in sorted(found)[-n:]:
+            print(f"- {ts[:10]} {text[:200]}")
+        return
     data = {"ev": ev}
     for kv in sys.argv[2:]:
         k, _, v = kv.partition("=")

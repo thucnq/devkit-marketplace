@@ -6,6 +6,8 @@ grep -vE '^#|^$' .dk/state.md | head -12
 b="$(git branch --show-current 2>/dev/null)"; [ -n "$b" ] && echo "branch: $b ($(git status --porcelain 2>/dev/null | wc -l | tr -d ' ') uncommitted files)"
 [ -f .dk/check-report.md ] && echo "last check: $(head -1 .dk/check-report.md)"
 [ -f docs/plan/tien-do.md ] && python3 "$(dirname "$0")/gen-plan.py" --summary 2>/dev/null | head -1
+lessons="$(python3 "$(dirname "$0")/dk_event.py" lessons 5 2>/dev/null)"
+[ -n "$lessons" ] && { echo "Bài học của dự án (/dk:note #lesson — áp dụng khi liên quan):"; echo "$lessons"; }
 # Windows-native shells and repos on /mnt/<drive> are the main source of breakage (CRLF, file modes, slow I/O)
 case "$(uname -s 2>/dev/null)" in
   MINGW*|MSYS*|CYGWIN*) echo "⚠ Phiên đang chạy trên Windows (Git Bash) — dk được kiểm chứng trên WSL2. Đề nghị người dùng chạy /dk:doctor và chuyển sang WSL (docs/dev/wsl-intellij.md)." ;;

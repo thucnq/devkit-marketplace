@@ -22,8 +22,12 @@ jobs:
         run: |
           for f in plugins/dk/scripts/*.sh plugins/dk/templates/golden-path/deploy/*.sh; do bash -n "$f"; done
           python3 -m py_compile plugins/dk/scripts/*.py
-      - name: Template traceability copy is in sync
-        run: cmp plugins/dk/scripts/ac-trace.py plugins/dk/templates/golden-path/tools/ac-trace.py
+      - name: Template copies are in sync
+        run: |
+          cmp plugins/dk/scripts/ac-trace.py plugins/dk/templates/golden-path/tools/ac-trace.py
+          cmp plugins/dk/scripts/check-migrations.sh plugins/dk/templates/golden-path/tools/check-migrations.sh
+      - name: Hook and script regression tests (guard, evidence, migrations, ac-trace, gen-plan)
+        run: python3 -m unittest discover -s plugins/dk/tests -v
 
   scaffold-and-build:
     runs-on: ubuntu-latest

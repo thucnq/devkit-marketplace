@@ -15,6 +15,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from dk_event import emit, project_root, redact  # noqa: E402
 
 CMD_RE = re.compile(r"<command-name>/?([\w:-]+)</command-name>")
+# Phrases that often mean the work was cut short (idea from ECC delivery-gate). Logged as keys only, never text.
+EXCUSES = {
+    "pre-existing": r"pre-?existing|lỗi có sẵn|lỗi cũ|đã đỏ từ trước",
+    "flaky": r"\bflaky\b|chập chờn|lúc được lúc không",
+    "unrelated": r"unrelated to (?:this|my|the) change|không liên quan (?:tới|đến) thay đổi",
+    "skip-tests": r"skip(?:ping|ped)? (?:the )?tests?|bỏ qua test|tắt test|chưa chạy test",
+    "later": r"\bfor now\b|\bleave (?:it|this) for later\b|để sau|làm sau|tạm bỏ",
+}
+COMPACT_AT = int(os.environ.get("DK_COMPACT_AT", "120000"))   # context tokens before suggesting /compact
+COMPACT_STEP = 40000
 
 
 def session_file(root, sid):
@@ -51,6 +61,7 @@ def usage_since(path, state):
     except OSError:
         return totals, cmd
     seen = set(state.get("seen", []))
+    state["last_text"] = ""
     for raw in data[:end].splitlines():
         try:
             d = json.loads(raw)
@@ -69,6 +80,12 @@ def usage_since(path, state):
         seen.add(mid)
         state.setdefault("seen", []).append(mid)
         u, model = msg["usage"], msg.get("model", "unknown")
+        if not d.get("isSidechain"):
+            state["ctx"] = (u.get("input_tokens", 0) + u.get("cache_read_input_tokens", 0)
+                            + u.get("cache_creation_input_tokens", 0))
+            texts = [c.get("text", "") for c in msg.get("content") or [] if isinstance(c, dict) and c.get("type") == "text"]
+            if texts:
+                state["last_text"] = "\n".join(texts)[-4000:]
         t = totals.setdefault(model, {"in": 0, "cache_read": 0, "cache_write": 0, "out": 0, "calls": 0})
         t["in"] += u.get("input_tokens", 0)
         t["cache_read"] += u.get("cache_read_input_tokens", 0)
@@ -139,6 +156,22 @@ def main():
             s["cmd"] = cmd
         if usage:
             emit(root, {**base, "ev": "usage", "cmd": s.get("cmd"), "usage": usage})
+        notices = []
+        text = p.get("last_assistant_message") or s.pop("last_text", "") or ""
+        hits = [k for k, rx in EXCUSES.items() if re.search(rx, text, re.I)] if kind == "turn" else []
+        if hits:
+            emit(root, {**base, "ev": "excuse", "keys": hits})
+            notices.append(f"⚠ dk: câu trả lời vừa rồi có dấu hiệu bỏ dở ({', '.join(hits)}) — kiểm lại trước khi chấp nhận.")
+        ctx = s.get("ctx", 0)
+        if ctx < s.get("ctx_warned", 0) - COMPACT_STEP:  # compacted or cleared since the last notice
+            s["ctx_warned"] = 0
+        if kind == "turn" and ctx >= COMPACT_AT and ctx >= s.get("ctx_warned", 0) + COMPACT_STEP:
+            s["ctx_warned"] = ctx
+            emit(root, {**base, "ev": "context_high", "tokens": ctx})
+            notices.append(f"ℹ dk: ngữ cảnh ~{ctx // 1000}k token. Trạng thái đã nằm trong file (.dk/, docs/) — "
+                           "xong bước hiện tại thì /compact hoặc /clear để đỡ tốn token.")
+        if notices:
+            print(json.dumps({"systemMessage": " ".join(notices)}, ensure_ascii=False))
         if kind == "end":
             emit(root, {**base, "ev": "session_end", "reason": p.get("reason")})
             try:

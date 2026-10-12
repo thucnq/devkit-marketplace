@@ -7,6 +7,8 @@ Usage: guard.py bash|file   (hook payload JSON on stdin)
 import json
 import os
 import re
+import shlex
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -25,6 +27,25 @@ SECRET_ALLOW = re.compile(r"(\.env\.example|example\.env|\.env\.sample|id_\w+\.p
 
 
 _CTX = {}
+
+# Quality gates the agent must not weaken (idea from ECC config-protection). Humans edit them in a
+# session started with DK_ALLOW_QUALITY_EDIT=1 — the agent cannot set that variable itself.
+QUALITY_FILES = re.compile(
+    r"(^|/)(eslint\.config\.[cm]?[jt]s|\.eslintrc(\.\w+)?|\.prettierrc(\.\w+)?|prettier\.config\.[cm]?js"
+    r"|tsconfig(\.\w+)?\.json|spotbugs-exclude\.xml|[\w-]*pmd[\w-]*\.xml|\.gitleaks\.toml|\.semgrepignore"
+    r"|\.semgrep\.ya?ml|ArchitectureTest\.java|ac-trace\.py|check-migrations\.sh)$"
+    r"|(^|/)\.github/workflows/[^/]+\.ya?ml$")
+SUPPRESSIONS = {
+    "@Disabled": r"@Disabled\b", "@Ignore": r"@Ignore\b", "@SuppressFBWarnings": r"@SuppressFBWarnings\b",
+    "NOPMD": r"\bNOPMD\b", "CHECKSTYLE:OFF": r"CHECKSTYLE:OFF", "eslint-disable": r"eslint-disable",
+    "@ts-ignore": r"@ts-ignore", "@ts-nocheck": r"@ts-nocheck", "@ts-expect-error": r"@ts-expect-error",
+    "nosemgrep": r"nosemgrep", "gitleaks:allow": r"gitleaks:allow",
+    ".skip/.only": r"\b(?:it|test|describe)\.(?:skip|only)\(|\bx(?:it|describe)\(",
+}
+POM_WEAKEN = {
+    "skipTests": r"skipTests|maven\.test\.skip|<skip>\s*true", "testFailureIgnore": r"testFailureIgnore",
+    "failOn*=false": r"<fail\w*>\s*false", "haltOnFailure": r"haltOnFailure>\s*false",
+}
 
 
 def block(msg: str, rule: str = "other") -> None:
@@ -80,11 +101,62 @@ def push_dir(flat: str, root: Path) -> Path:
     return p if p.is_dir() else root
 
 
+HEREDOC = re.compile(r"(?P<head>[^\n]*)<<-?\s*(['\"]?)(?P<tag>\w+)\2[^\n]*\n.*?\n\s*(?P=tag)\s*(?=\n|$)", re.S)
+TEXT_ARG = re.compile(r"""(?P<lead>(?:\s(?:-m|--message|--body|--title|--notes|--subject|-t|-b)(?:=|\s+)|\b(?:echo|printf)\s+(?:-\w+\s+)*))"""
+                      r"""(?P<q>'[^']*'|"(?:[^"\\]|\\.)*")""")
+SHELLS = re.compile(r"\b(?:bash|sh|zsh|ssh|python3?|node|eval)\b")
+
+
+def code_only(cmd: str) -> str:
+    """The command with *text* blanked — heredoc bodies fed to non-shell commands and quoted arguments of
+    message flags (-m, --body, --title…) or echo/printf — so a commit message or PR body that merely
+    mentions `git push` / `gh pr merge` is not mistaken for running it (known false positive; idea from
+    ECC's shell-segment parsing). Code passed to a shell (bash -c, heredoc into bash/ssh) is kept, and
+    secrets/prod hosts are still checked on the full text."""
+    s = HEREDOC.sub(lambda m: m.group(0) if SHELLS.search(m.group("head")) else m.group("head") + "<<TEXT", cmd)
+    s = TEXT_ARG.sub(lambda m: m.group("lead") + "''", s)
+    return " ".join(s.split())
+
+
+def shell_write_targets(cmd: str) -> list:
+    """Paths a shell command may write: redirection targets, sed -i files, tee args, cp/mv/install destination."""
+    out = re.findall(r">>?\s*['\"]?([^\s;&|'\"]+)", cmd)
+    for seg in re.split(r"\|\||&&|[;|\n]", cmd):
+        try:
+            words = shlex.split(seg)
+        except ValueError:
+            words = seg.split()
+        while words and re.fullmatch(r"\w+=\S*|sudo|env|command", words[0]):
+            words = words[1:]
+        if not words:
+            continue
+        name, args = Path(words[0]).name, [w for w in words[1:]]
+        files = [w for w in args if not w.startswith("-")]
+        if name == "sed" and any(w.startswith("-i") or w == "--in-place" for w in args):
+            out += files[1:] if not any(w in ("-e", "-f") for w in args) else files
+        elif name == "tee":
+            out += files
+        elif name in ("cp", "mv", "install", "ln", "truncate", "rm") and files:
+            out += files if name in ("truncate", "rm") else files[-1:]
+    return out
+
+
 def check_bash(cmd: str, root: Path) -> None:
-    flat = " ".join(cmd.split())
+    full = " ".join(cmd.split())
+    flat = code_only(cmd)
+
+    # 0. Shell writes to quality configs (sed -i, redirection, tee, cp/mv onto them) — same rule as the file tools.
+    if (root / ".dk" / "state.md").exists() and os.environ.get("DK_ALLOW_QUALITY_EDIT") != "1":
+        for target in shell_write_targets(cmd):
+            target = target.replace("\\", "/")
+            if target.startswith("./"):
+                target = target[2:]
+            if QUALITY_FILES.search(target) and (root / target).exists():
+                block(f"Lệnh shell sửa {target} — cấu hình kiểm tra chất lượng, agent không được nới. Sửa code; "
+                      "cần đổi luật thì nhờ người (DK_ALLOW_QUALITY_EDIT=1).", "quality_config")
 
     # 1. Secrets never enter the model's context.
-    if is_secret(flat):
+    if is_secret(full):
         block("Lệnh chạm vào file bí mật (.env, deploy/envs/*.env, khóa). Dùng file *.example, "
               "hoặc để script deploy/dk-check tự đọc. Nếu thật sự cần, người dùng tự chạy lệnh.", "secret_read")
 
@@ -93,7 +165,7 @@ def check_bash(cmd: str, root: Path) -> None:
             r"(--context|--env|-e|ENV=|SPRING_PROFILES_ACTIVE=)\s*=?\s*['\"]?prod(uction)?\b", flat):
         block("Triển khai/ thao tác production chỉ do người thực hiện. Agent chỉ làm trên non-prod.", "prod")
     for h in prod_hosts(root):
-        if h and h in flat:
+        if h and h in full:
             block(f"Lệnh trỏ tới host production ({h}). Agent chỉ làm trên non-prod.", "prod_host")
 
     # 3. Human gates.
@@ -104,7 +176,7 @@ def check_bash(cmd: str, root: Path) -> None:
     if re.search(r"\bgit\s+push\b", flat):
         if re.search(r"\s(--force(?!-with-lease)|-f)\b", flat):
             block("Không force-push. Dùng --force-with-lease trên nhánh feature nếu thật cần.", "force_push")
-        push_args = re.split(r"[;&|]", flat.split("git push", 1)[1])[0].split()
+        push_args = [a.strip("'\"") for a in re.split(r"[;&|]", flat.split("git push", 1)[1])[0].split()]
         if any(re.fullmatch(r"(\+?[\w/.-]*:)?(refs/heads/)?(main|master)", a) for a in push_args):
             block("Không push thẳng lên main. Mở PR qua /dk:review.", "push_main")
         branch = subprocess.run(["git", "branch", "--show-current"], cwd=push_dir(flat, root),
@@ -141,7 +213,47 @@ def check_file(tool: str, inp: dict, root: Path) -> None:
             tracked = subprocess.run(["git", "ls-files", "--error-unmatch", str(p)], cwd=root,
                                      capture_output=True).returncode == 0
             if tracked:
-                block(f"{rel} đã commit — không sửa migration cũ. Tạo file V<next>__*.sql mới.", "migration_edit")
+                block(f"{rel} đã commit — không sửa migration cũ. Tạo file V<yyyyMMddHHmm>__*.sql mới.", "migration_edit")
+        check_quality(tool, inp, rel.replace("\\", "/"), p, root)
+
+
+def _new_and_old(tool: str, inp: dict, p: Path):
+    """Text the edit adds and the text it replaces (whole file for Write)."""
+    if tool == "Edit":
+        return inp.get("new_string") or "", inp.get("old_string") or ""
+    if tool == "MultiEdit":
+        edits = inp.get("edits") or []
+        return "\n".join(e.get("new_string") or "" for e in edits), "\n".join(e.get("old_string") or "" for e in edits)
+    if tool == "Write":
+        try:
+            old = p.read_text(encoding="utf-8", errors="ignore") if p.exists() else ""
+        except OSError:
+            old = ""
+        return inp.get("content") or "", old
+    return "", ""
+
+
+def check_quality(tool: str, inp: dict, rel: str, p: Path, root: Path) -> None:
+    """Agents must fix code, not weaken the checks (ECC config-protection, adapted to dk)."""
+    if os.environ.get("DK_ALLOW_QUALITY_EDIT") == "1" or not (root / ".dk" / "state.md").exists():
+        return
+    if QUALITY_FILES.search(rel) and p.exists():
+        block(f"{rel} là cấu hình kiểm tra chất lượng — agent không sửa để cho qua. Sửa code; nếu thật sự cần đổi "
+              "luật, dừng lại và nhờ người (người mở phiên với DK_ALLOW_QUALITY_EDIT=1).", "quality_config")
+    new, old = _new_and_old(tool, inp, p)
+    if not new:
+        return
+    added = [name for name, rx in SUPPRESSIONS.items() if len(re.findall(rx, new)) > len(re.findall(rx, old))]
+    if added and not rel.endswith((".md", ".txt")):
+        block(f"Không thêm {', '.join(added)} vào {rel} để né kiểm tra/test. Sửa nguyên nhân; nếu là báo nhầm, "
+              "ghi lý do vào PR và nhờ người thêm.", "suppression")
+    if rel.endswith("pom.xml"):
+        weak = [name for name, rx in POM_WEAKEN.items() if len(re.findall(rx, new)) > len(re.findall(rx, old))]
+        mins_old, mins_new = re.findall(r"<minimum>\s*([\d.]+)", old), re.findall(r"<minimum>\s*([\d.]+)", new)
+        if mins_new and mins_old and min(map(float, mins_new)) < min(map(float, mins_old)):
+            weak.append("hạ <minimum> coverage")
+        if weak:
+            block(f"pom.xml: không {', '.join(weak)} — cổng chất lượng chỉ người được nới.", "quality_config")
 
 
 def main() -> None:
