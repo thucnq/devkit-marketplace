@@ -22,6 +22,7 @@ jobs:
         run: |
           for f in plugins/dk/scripts/*.sh plugins/dk/templates/golden-path/deploy/*.sh; do bash -n "$f"; done
           python3 -m py_compile plugins/dk/scripts/*.py
+          pwsh -NoProfile -File plugins/dk/tests/test_setup_wsl.ps1   # setup-wsl.ps1: parse, PS 5.1 syntax, .wslconfig editing
           shellcheck -S warning plugins/dk/scripts/*.sh plugins/dk/templates/golden-path/scripts/dev/*.sh \
             plugins/dk/templates/golden-path/tools/*.sh plugins/dk/templates/golden-path/.githooks/pre-commit
           pipx run pyflakes plugins/dk/scripts/*.py plugins/dk/tests/*.py

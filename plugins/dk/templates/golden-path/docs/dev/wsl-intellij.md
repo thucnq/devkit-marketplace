@@ -34,11 +34,23 @@ Lấy `setup-wsl.ps1` từ repo plugin (`plugins/dk/scripts/windows/setup-wsl.ps
 ```powershell
 cd $env:USERPROFILE\Downloads
 Set-ExecutionPolicy -Scope Process Bypass
-.\setup-wsl.ps1
+.\setup-wsl.ps1 -Drive D        # cài Ubuntu vào D:\wsl\Ubuntu-24.04; bỏ -Drive thì script hỏi chọn ổ
 ```
 Script: cài WSL2 + Ubuntu 24.04 (Windows 10 bản cũ không có `wsl --install` thì tự bật tính năng bằng `dism`), chạy `wsl --update`, và ghi `%USERPROFILE%\.wslconfig` giới hạn RAM (mặc định một nửa RAM máy, tối đa 12 GB) để Windows + IntelliJ không bị đói RAM.
 
-Khởi động lại nếu được yêu cầu → mở **Ubuntu 24.04** từ Start menu → tạo user Linux.
+**Chọn ổ đĩa cho Ubuntu.** Đĩa ảo của Ubuntu (`ext4.vhdx`) chứa repo, Docker image, cache Maven/npm và lớn dần tới 20–60 GB. Mặc định Windows để nó ở ổ C; ổ C đầy là nguyên nhân hay gặp nhất làm hỏng đĩa ảo. Script:
+- Không truyền `-Drive`: liệt kê các ổ còn trống bao nhiêu và hỏi. Nếu ổ C còn dưới 40 GB, ổ trống nhiều nhất được chọn sẵn.
+- `-Drive D` (hoặc `-InstallDir E:\linux`): cài thẳng vào đó (WSL ≥ 2.4, `wsl --install --location`). WSL cũ hơn thì cài ở C rồi chuyển ngay.
+- Đặt luôn file swap của WSL (`swapFile` trong `.wslconfig`) vào cùng ổ — mặc định nó nằm ở `%TEMP%` trên ổ C.
+- Ổ phải là ổ cố định, định dạng NTFS (FAT32/exFAT không chứa được đĩa ảo; ổ USB rút ra khi WSL chạy sẽ hỏng đĩa ảo).
+
+**Ubuntu đã cài ở ổ C rồi?** Chạy cùng lệnh: `.\setup-wsl.ps1 -Drive D`. Script tắt WSL (Docker, Claude Code trong Ubuntu sẽ dừng), rồi chuyển nguyên Ubuntu sang `D:\wsl\Ubuntu-24.04` — giữ nguyên user, repo, mọi thứ bên trong:
+- WSL ≥ 2.3: `wsl --manage --move`, cần chỗ trống ≈ kích thước đĩa ảo.
+- WSL cũ: export ra file `.tar` trên ổ D → gỡ bản ở C → import vào D → đặt lại user mặc định; cần chỗ trống ≈ 2 lần đĩa ảo. Bản ở C chỉ bị gỡ sau khi file `.tar` đã ghi xong; import lỗi thì dữ liệu vẫn nằm trong file `.tar`.
+- Xem Ubuntu đang ở đâu, nặng bao nhiêu, các ổ còn trống bao nhiêu: `.\setup-wsl.ps1 -Status`.
+- Chuyển xong, ổ C được giải phóng đúng bằng kích thước đĩa ảo. Đĩa ảo không tự co lại khi xóa file trong Ubuntu — muốn thu nhỏ: trong Ubuntu `docker system prune -a`, rồi PowerShell `wsl --shutdown` và `wsl --manage Ubuntu-24.04 --set-sparse true`.
+
+Khởi động lại nếu được yêu cầu → mở **Ubuntu 24.04** từ Start menu (hoặc gõ `wsl -d Ubuntu-24.04`) → tạo user Linux.
 
 Lưu ý riêng Windows 10: không có *mirrored networking* (chỉ Windows 11 22H2+). Hướng dẫn này chỉ dùng **localhost forwarding** (Windows → WSL), chạy được trên Windows 10.
 
@@ -168,7 +180,8 @@ Vite proxy `/api` sang `localhost:8080` trong WSL. Sửa file trong IntelliJ (qu
 | Đồng hồ WSL lệch sau khi máy ngủ (token JWT hết hạn sai, `git` cảnh báo) | `sudo hwclock -s` hoặc `wsl --shutdown` |
 | Remote Control không lên trên điện thoại | `dk-remote attach` xem lỗi; máy phải thức, đăng nhập `claude` bằng tài khoản claude.ai (không dùng API key) |
 | `HCS_E_HYPERV_NOT_INSTALLED`, `0x80370102`, "virtualization is not enabled" | Bật VT-x/AMD-V/SVM trong BIOS; PowerShell Admin: `bcdedit /set hypervisorlaunchtype auto`; **Restart** (không Shut down). Kiểm: `systeminfo \| findstr /i hypervisor` |
-| `Bus error (core dumped)` rồi `Wsl/Service/CreateInstance/E_FAIL` | Đĩa ảo hỏng, thường do ổ C đầy: `wsl --shutdown`, `wsl --update`; không được thì cài lại distro và chuyển sang ổ khác (`.\setup-wsl.ps1 -MoveTo D:\wsl`) |
+| `Bus error (core dumped)` rồi `Wsl/Service/CreateInstance/E_FAIL` | Đĩa ảo hỏng, thường do ổ C đầy: `wsl --shutdown`, `wsl --update`; không được thì cài lại distro ở ổ khác (`.\setup-wsl.ps1 -Drive D`). Phòng ngừa: chuyển Ubuntu khỏi ổ C sớm (`-Drive D`) |
+| `/dk:doctor` báo ổ C sắp đầy | Ubuntu đang ở ổ C thì chuyển: PowerShell Admin `.\setup-wsl.ps1 -Drive D` (xem Bước 1); kiểm `.\setup-wsl.ps1 -Status` |
 | `Unknown command: --unregister` hoặc lệnh `wsl` lạ | Đang gọi nhầm chương trình `wsl` khác: dùng `wsl.exe` trong PowerShell |
 | `which docker` ra `/mnt/c/Program Files/Docker/...` | Đó là Docker Desktop. Cài Docker Engine trong Ubuntu; vẫn ra `/mnt/c` thì thêm `[interop] appendWindowsPath=false` vào `/etc/wsl.conf`, `wsl --shutdown` |
 | `Remote Control requires a claude.ai subscription` / `…full-scope login token` | `claude auth login` chọn claude.ai; bỏ `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `apiKeyHelper`, token `setup-token` |
