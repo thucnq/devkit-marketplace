@@ -147,5 +147,30 @@ class TraceAndPlanTest(unittest.TestCase):
         self.assertTrue((self.r / "docs/plan/gantt.html").read_text().count("AC-CTY-01") >= 1)
 
 
+
+class DeployRollbackTest(unittest.TestCase):
+    def test_rollback_local(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            r = Path(tmp) / "app"
+            host = Path(tmp) / "host"
+            bin_ = Path(tmp) / "bin"
+            for d in (r / "deploy/envs", host, bin_):
+                d.mkdir(parents=True)
+            (r / "deploy/envs/staging.env").write_text(f"DEPLOY_HOST=local\nDEPLOY_DIR={host}\nPUBLIC_URL=http://x\n")
+            (host / "releases.log").write_text("2026-10-01T00:00:00Z aaa111 deploy\n2026-10-02T00:00:00Z bbb222 deploy\n")
+            (bin_ / "docker").write_text(f"#!/bin/sh\necho \"TAG=$TAG $*\" >> {tmp}/docker.log\n")
+            (bin_ / "curl").write_text("#!/bin/sh\nexit 0\n")
+            for f in ("docker", "curl"):
+                (bin_ / f).chmod(0o755)
+            env = {**os.environ, "PATH": f"{bin_}:{os.environ['PATH']}"}
+            out = subprocess.run(["bash", str(SCRIPTS / "deploy.sh"), "staging", "--rollback"], cwd=r, env=env,
+                                 capture_output=True, text=True)
+            self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+            self.assertIn("TAG=aaa111 compose up -d", (Path(tmp) / "docker.log").read_text())
+            self.assertTrue((host / "releases.log").read_text().strip().endswith("aaa111 rollback"))
+            prod = subprocess.run(["bash", str(SCRIPTS / "deploy.sh"), "production"], cwd=r, capture_output=True, text=True)
+            self.assertEqual(prod.returncode, 2)
+
+
 if __name__ == "__main__":
     unittest.main()

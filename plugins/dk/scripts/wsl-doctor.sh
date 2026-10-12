@@ -51,6 +51,10 @@ if root="$(git rev-parse --show-toplevel 2>/dev/null)"; then
   esac
   ac="$(git config core.autocrlf || echo unset)"
   [ "$ac" = true ] && fail "git core.autocrlf=true — sẽ đổi script sang CRLF. Sửa: wsl-doctor.sh --fix" || ok "git core.autocrlf=$ac"
+  if [ -d "$root/.githooks" ]; then
+    [ "$(git -C "$root" config core.hooksPath)" = .githooks ] && ok "git hook của dự án đang bật (.githooks)" \
+      || warn "git hook của dự án chưa bật cho clone này: git config core.hooksPath .githooks"
+  fi
   [ -f "$root/.gitattributes" ] && ok ".gitattributes có" || warn "Thiếu .gitattributes (golden path có mẫu ép LF cho *.sh, *.py, *.yml …)"
   crlf="$(cd "$root" && git ls-files -z -- '*.sh' '*.py' '*.yml' '*.yaml' '*.sql' '*.java' '*.ts' '*.tsx' 'mvnw' 2>/dev/null \
           | xargs -0 -r grep -lI $'\r' 2>/dev/null | head -5)"
@@ -90,12 +94,13 @@ done
 [ -z "$rc_block" ] && ok "Không có biến môi trường chặn Remote Control" \
   || warn "Biến môi trường làm Remote Control từ chối chạy:$rc_block — bỏ khỏi ~/.bashrc rồi 'claude auth login' bằng tài khoản claude.ai"
 for t in gitleaks semgrep osv-scanner k6; do have "$t" && ok "$t" || warn "Thiếu $t (kiểm tra tương ứng sẽ SKIPPED)"; done
-[ -x "$HOME/.local/bin/dk-remote" ] && ok "~/.local/bin/dk-remote" || warn "Chưa có ~/.local/bin/dk-remote (cần cho tự khởi động): wsl-doctor.sh --install-launcher"
+[ -x "$HOME/.local/bin/dk-remote" ] && ok "$HOME/.local/bin/dk-remote" || warn "Chưa có ~/.local/bin/dk-remote (cần cho tự khởi động): wsl-doctor.sh --install-launcher"
 
 if [ "${1:-}" = "--fix" ] && [ -n "${root:-}" ]; then
   echo "== Sửa"
   git config --global core.autocrlf input && echo "  git core.autocrlf=input (global)"
   git -C "$root" config core.autocrlf input
+  [ -d "$root/.githooks" ] && git -C "$root" config core.hooksPath .githooks && echo "  core.hooksPath=.githooks"
   git -C "$root" config core.fileMode false && echo "  core.fileMode=false (tránh diff do quyền file khi IntelliJ/Windows chạm vào)"
   if [ -n "${crlf:-}" ]; then
     (cd "$root" && git ls-files -z -- '*.sh' '*.py' '*.yml' '*.yaml' '*.sql' '*.java' '*.ts' '*.tsx' 'mvnw' \

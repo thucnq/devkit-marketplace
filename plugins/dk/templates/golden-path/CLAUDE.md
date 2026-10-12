@@ -24,4 +24,5 @@ Gates are enforced by hooks; state lives in `.dk/state.md` (edit only via dk-sta
 - New Flyway migrations are named `V<yyyyMMddHHmm>__<slug>.sql` (UTC) so parallel branches never collide.
 - Progress: `docs/plan/tien-do.md` is edited by humans (checkboxes, %); agents only regenerate it via `/dk:plan`.
 - Fix the code, never the gate: quality configs (eslint, tsconfig, SpotBugs/PMD, gitleaks, CI workflows, ArchitectureTest, coverage thresholds) and suppressions (`@Disabled`, `NOPMD`, `@ts-ignore`, `eslint-disable`, `nosemgrep`, `.skip`) are blocked by the guard hook — stop and ask the human.
+- Git hooks live in `.githooks/` (`git config core.hooksPath .githooks`); never bypass them.
 - Build evidence: RED before implementing, GREEN after (`dk-evidence.py`, `.dk/evidence/<feature>.json` is committed).

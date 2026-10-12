@@ -1,7 +1,7 @@
 {
   "name": "dk",
   "displayName": "Delivery Kit",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Freelance delivery workflow for Java 21/Spring Boot + Postgres + React: Vietnamese docs-as-code, test-first build, independent review, zero-token quality gates.",
   "author": {
     "name": "Nguyen Quy Thuc",
@@ -41,7 +41,7 @@
       "type": "string",
       "title": "Marketplace GitHub repo",
       "description": "owner/repo of this marketplace, written into new projects' .claude/settings.json so teammates get the plugin automatically",
-      "default": "OWNER/devkit-marketplace"
+      "default": "thucnq/devkit-marketplace"
     }
   }
 }

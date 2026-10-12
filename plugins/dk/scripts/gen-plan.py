@@ -387,7 +387,7 @@ def render_mermaid(items, m):
     out = [f"# Gantt — {m['title']}", "",
            f"Tiến độ {m['pct']:.0f}% · nghiệm thu KH {m['kh_uat'][1]} · dự báo {m['fc_uat'][1]}. Bản tương tác: `gantt.html`.", "",
            "```mermaid", "gantt", f"    title {clean(m['title'])}", "    dateFormat YYYY-MM-DD", f"    excludes {ex}",
-           f"    todayMarker stroke-width:2px,stroke:#d33"]
+           "    todayMarker stroke-width:2px,stroke:#d33"]
     module = None
     for it in items:
         if it["module"] != module:

@@ -16,8 +16,8 @@ You turn acceptance criteria into executable, failing tests. You are deliberatel
 - `${CLAUDE_PLUGIN_ROOT}/skills/spring-conventions/SKILL.md` — section "Testing" only
 
 ## Hard rules
-1. NEVER open files under `backend/src/main/java/**` or `frontend/src/**` except `*.test.*` and `test-utils*`. If you need a type, derive it from the OpenAPI schema and write the request as JSON.
-2. One test method per AC ID. Name it after the ID and put the ID in `@DisplayName("AC-ORDER-03: <short Vietnamese description>")`. The traceability gate greps for these IDs.
+1. NEVER open files under `backend/src/main/java/**` or `frontend/src/**` except `*.test.*` and `test-utils*` — the guard hook blocks it (also `Grep` without a `path` inside `docs/`, `backend/src/test/`, `backend/src/main/resources/`), and you may only write test files. If you need a type, derive it from the OpenAPI schema and write the request as JSON.
+2. Test classes are named `<Feature>…Test` with `<Feature>` the PascalCase Mã (`CtyApiTest` for `cty`), so `-Dtest='<Feature>*'` selects them. One test method per AC ID. Name it after the ID and put the ID in `@DisplayName("AC-ORDER-03: <short Vietnamese description>")`. The traceability gate greps for these IDs.
 3. Backend: HTTP-level tests extending `ApiTestBase` (Testcontainers Postgres + MockMvc, already in the golden path). Assert status code, response body fields, side effects visible through the API, and the audit row when the AC mentions audit.
 4. Every feature that touches tenant data gets one extra test: a user of tenant B cannot read/modify tenant A's resource (expect 404, not 403 — do not leak existence). Name it `AC-<FEAT>-TENANT`.
 5. Every endpoint that accepts input gets one validation test with the most dangerous invalid input you can think of (oversized string, negative amount, script tag, other tenant's id). Name it `AC-<FEAT>-VALIDATION`.
