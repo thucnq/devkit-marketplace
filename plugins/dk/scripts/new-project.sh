@@ -34,7 +34,7 @@ LC_ALL=C grep -rIl --exclude-dir=.git --exclude-dir=node_modules -e 'vn\.goldenp
   sed -e "s/vn\.goldenpath/$PKG/g" -e "s/goldenpath/$SLUG/g" "$f" > "$f.tmp" && mv "$f.tmp" "$f"
 done
 sed -e "s#__MARKETPLACE_REPO__#$MARKET#" .claude/settings.json > .claude/settings.json.tmp && mv .claude/settings.json.tmp .claude/settings.json
-chmod +x deploy/*.sh 2>/dev/null || true
+chmod +x deploy/*.sh scripts/dev/*.sh tools/*.sh 2>/dev/null || true
 
 # maven wrapper (generated locally so the project pins its Maven version)
 if command -v mvn >/dev/null 2>&1; then

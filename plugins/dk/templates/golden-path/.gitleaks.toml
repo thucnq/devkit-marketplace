@@ -8,4 +8,6 @@ paths = [
   '''backend/src/test/resources/application-test\.yml''',
   '''deploy/envs/example\.env''',
   '''deploy/\.env\.example''',
+  # Claude Code / dk tool state: session cursors contain random ids that look like keys (false positives)
+  '''\.dk/log/\.sessions/''',
 ]

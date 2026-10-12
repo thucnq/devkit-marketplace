@@ -73,6 +73,12 @@ if [ -d docs/acceptance ] && [ "${MODE#precommit}" = "$MODE" ]; then
   fi
 fi
 
+# ---- migrations: expand-only, committed ones untouched, timestamp names ----
+if [ -d backend/src/main/resources/db/migration ] && [ "${MODE#precommit}" = "$MODE" ]; then
+  MIG="$HERE/check-migrations.sh"; [ -f tools/check-migrations.sh ] && MIG="tools/check-migrations.sh"
+  run "migrations (expand-only)" bash "$MIG"
+fi
+
 # ---- contract ----
 if [ -f docs/api/openapi.yaml ] && [ "$MODE" = full ]; then
   if has npx; then run "OpenAPI lint" npx -y @redocly/cli@1 lint --format=stylish docs/api/openapi.yaml
