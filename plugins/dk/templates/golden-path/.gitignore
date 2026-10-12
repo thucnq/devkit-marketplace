@@ -23,3 +23,5 @@ docs/input/misa/*
 !docs/input/misa/.gitkeep
 docs/input/client-data/
 .dk/log/.sessions/
+# personal Claude Code settings / plugins (see docs/dev/wsl-intellij.md "Plugin khác")
+.claude/settings.local.json

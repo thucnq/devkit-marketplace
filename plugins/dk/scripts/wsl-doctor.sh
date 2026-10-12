@@ -68,6 +68,7 @@ if have node; then nv="$(node -v | tr -d v)"; ver_ge "$nv" 22.0.0 && ok "node $n
 else fail "Thiếu node 22: curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt install -y nodejs"; fi
 case "$(command -v node 2>/dev/null)" in /mnt/[a-z]/*) fail "node đang lấy từ Windows ($(command -v node)) — cài node trong Ubuntu";; esac
 case "$(command -v java 2>/dev/null)" in /mnt/[a-z]/*) fail "java đang lấy từ Windows — cài JDK trong Ubuntu";; esac
+case "$(command -v docker 2>/dev/null)" in /mnt/[a-z]/*) fail "docker đang lấy từ Windows ($(command -v docker)) — đó là Docker Desktop. Cài Docker Engine trong Ubuntu; vẫn ra /mnt/c thì thêm '[interop] appendWindowsPath=false' vào /etc/wsl.conf rồi (PowerShell) wsl --shutdown";; esac
 if have docker; then
   if docker info >/dev/null 2>&1; then ok "docker chạy được ($(docker version -f '{{.Server.Version}}' 2>/dev/null))"
   else fail "docker có nhưng không kết nối được daemon: sudo systemctl enable --now docker && sudo usermod -aG docker \$USER (đăng nhập lại), hoặc bật WSL integration trong Docker Desktop"; fi
@@ -80,6 +81,14 @@ have git && { gv="$(git --version | awk '{print $3}')"; ver_ge "$gv" 2.31.0 && o
 have gh && { gh auth status >/dev/null 2>&1 && ok "gh đã đăng nhập" || warn "gh chưa đăng nhập: gh auth login"; } || warn "Thiếu gh: sudo apt install -y gh"
 have claude && ok "claude $(claude --version 2>/dev/null | head -1)" || fail "Thiếu Claude Code trong WSL: curl -fsSL https://claude.ai/install.sh | bash"
 have tmux && ok "tmux" || warn "Thiếu tmux (Remote Control chạy nền): sudo apt install -y tmux"
+# Remote Control chỉ chạy với đăng nhập claude.ai, gọi thẳng api.anthropic.com, feature flag bật (runbook hopnhat 10.3)
+rc_block=""
+for v in ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN ANTHROPIC_BASE_URL CLAUDE_CODE_USE_BEDROCK CLAUDE_CODE_USE_VERTEX \
+         CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC DISABLE_GROWTHBOOK; do
+  [ -n "${!v:-}" ] && rc_block="$rc_block $v"
+done
+[ -z "$rc_block" ] && ok "Không có biến môi trường chặn Remote Control" \
+  || warn "Biến môi trường làm Remote Control từ chối chạy:$rc_block — bỏ khỏi ~/.bashrc rồi 'claude auth login' bằng tài khoản claude.ai"
 for t in gitleaks semgrep osv-scanner k6; do have "$t" && ok "$t" || warn "Thiếu $t (kiểm tra tương ứng sẽ SKIPPED)"; done
 [ -x "$HOME/.local/bin/dk-remote" ] && ok "~/.local/bin/dk-remote" || warn "Chưa có ~/.local/bin/dk-remote (cần cho tự khởi động): wsl-doctor.sh --install-launcher"
 

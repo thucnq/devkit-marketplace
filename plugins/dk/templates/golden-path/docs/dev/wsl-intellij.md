@@ -87,7 +87,24 @@ PowerShell (Admin):
 ```powershell
 .\setup-wsl.ps1 -Configure -RepoPath "~/code/<du-an>"
 ```
-Tạo tác vụ `dk-remote-<du-an>` chạy khi đăng nhập Windows và tắt chế độ ngủ khi cắm điện. Lệnh khác: `dk-remote stop | resume | attach`. Windows Update có thể tự khởi động lại máy — đặt *Active hours* rộng.
+Tạo tác vụ `dk-remote-<du-an>` chạy khi đăng nhập Windows và tắt chế độ ngủ khi cắm điện. Lệnh khác: `dk-remote stop | resume | attach | status`. Windows Update có thể tự khởi động lại máy — đặt *Active hours* rộng.
+
+Ba điều hay làm phiên Remote Control offline:
+- **WSL tự tắt Ubuntu** vài giây sau khi không còn tiến trình `wsl.exe` nào (kéo theo tmux và claude). Tác vụ Windows giữ một tiến trình bằng `exec sleep infinity`: cửa sổ wsl nó mở thì **thu nhỏ, không đóng**.
+- **Mất mạng quá ~10 phút**: `claude remote-control` tự thoát. `dk-remote` chạy nó trong vòng lặp, 30 giây sau tự chạy lại với `--continue`; `dk-remote status` cho biết đã tự khởi động lại bao nhiêu lần.
+- **Hội thoại quá dài**: chậm và tốn token. Trạng thái dk nằm trong file nên `/compact` hoặc `/clear` an toàn; plugin tự nhắc khi ngữ cảnh vượt ~120k token (`DK_COMPACT_AT` để đổi ngưỡng).
+
+## Plugin khác trong cùng repo
+Plugin cá nhân (ECC, superpowers, claude-mem…) bật trong `.claude/settings.local.json` (đã gitignore), không bật trong `.claude/settings.json` dùng chung:
+```json
+{ "enabledPlugins": { "frontend-design@claude-plugins-official": true, "superpowers@claude-plugins-official": false } }
+```
+Tắt trong repo dk những plugin:
+- tự chạy quy trình plan/TDD riêng (superpowers, ECC `/ecc:plan`, `tdd-workflow`) — trùng và đá nhau với `/dk:spec`, `/dk:build`;
+- mang trí nhớ phiên sang subagent (claude-mem, ECC continuous-learning) — phá tính độc lập của `test-author` và `reviewer`;
+- thêm hook chạy mỗi lượt tool (ECC GateGuard, dev-server blocker) — tốn token và có thể chặn script dk.
+
+Muốn dùng một skill tham khảo của ECC (vd `springboot-security`, `jpa-patterns`), cài riêng skill đó, không cài cả bộ.
 
 ---
 
@@ -150,3 +167,12 @@ Vite proxy `/api` sang `localhost:8080` trong WSL. Sửa file trong IntelliJ (qu
 | `docker: permission denied` | `sudo usermod -aG docker $USER`, đóng mở lại Ubuntu |
 | Đồng hồ WSL lệch sau khi máy ngủ (token JWT hết hạn sai, `git` cảnh báo) | `sudo hwclock -s` hoặc `wsl --shutdown` |
 | Remote Control không lên trên điện thoại | `dk-remote attach` xem lỗi; máy phải thức, đăng nhập `claude` bằng tài khoản claude.ai (không dùng API key) |
+| `HCS_E_HYPERV_NOT_INSTALLED`, `0x80370102`, "virtualization is not enabled" | Bật VT-x/AMD-V/SVM trong BIOS; PowerShell Admin: `bcdedit /set hypervisorlaunchtype auto`; **Restart** (không Shut down). Kiểm: `systeminfo \| findstr /i hypervisor` |
+| `Bus error (core dumped)` rồi `Wsl/Service/CreateInstance/E_FAIL` | Đĩa ảo hỏng, thường do ổ C đầy: `wsl --shutdown`, `wsl --update`; không được thì cài lại distro và chuyển sang ổ khác (`.\setup-wsl.ps1 -MoveTo D:\wsl`) |
+| `Unknown command: --unregister` hoặc lệnh `wsl` lạ | Đang gọi nhầm chương trình `wsl` khác: dùng `wsl.exe` trong PowerShell |
+| `which docker` ra `/mnt/c/Program Files/Docker/...` | Đó là Docker Desktop. Cài Docker Engine trong Ubuntu; vẫn ra `/mnt/c` thì thêm `[interop] appendWindowsPath=false` vào `/etc/wsl.conf`, `wsl --shutdown` |
+| `Remote Control requires a claude.ai subscription` / `…full-scope login token` | `claude auth login` chọn claude.ai; bỏ `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `apiKeyHelper`, token `setup-token` |
+| `…only available when using Claude via api.anthropic.com` / `…requires feature-flag evaluation` | Bỏ `ANTHROPIC_BASE_URL`, biến Bedrock/Vertex, `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`, `DISABLE_GROWTHBOOK` (`/dk:doctor` liệt kê) |
+| `Workspace not trusted` | Chạy `claude` trong terminal thật một lần ở thư mục repo, trả lời `y` |
+| Push hỏi mật khẩu / workflow không push được | `gh auth setup-git`; `gh auth refresh -s workflow` |
+| `[dk guard] … cấu hình kiểm tra chất lượng` khi agent sửa eslint/workflow/pom | Đúng thiết kế: agent không được nới cổng. Người sửa tay, hoặc mở phiên `DK_ALLOW_QUALITY_EDIT=1 claude` (không dùng cho phiên remote) |

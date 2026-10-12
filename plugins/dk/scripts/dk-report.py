@@ -75,6 +75,8 @@ def main():
     gates = []
     gate_blocked = Counter()
     notes = []
+    excuses = Counter()
+    context_high = 0
     edited = Counter()
     feature_span = {}
     test_runs = Counter()
@@ -128,6 +130,11 @@ def main():
             gate_blocked[e.get("gate")] += 1
         elif t == "note":
             notes.append(e)
+        elif t == "excuse":
+            for k in e.get("keys") or []:
+                excuses[k] += 1
+        elif t == "context_high":
+            context_high += 1
 
     total_tok = sum(tok(u) for u in usage_total.values())
     cache_read = sum(u.get("cache_read", 0) for u in usage_total.values())
@@ -160,6 +167,7 @@ def main():
         "test_runs_by_feature": dict(test_runs),
         "feature_span": {f: {"from": a, "to": b} for f, (a, b) in feature_span.items()},
         "most_edited": edited.most_common(15), "estimate": estimate,
+        "excuse_signals": dict(excuses), "context_high_notices": context_high,
         "notes": [{"ts": n["ts"], "author": n["author"], "tags": n.get("tags"), "text": n.get("text")} for n in notes],
     }
     stamp = (last or datetime.now()).strftime("%Y%m%d")
@@ -196,6 +204,9 @@ def main():
     L.append("- Hook chặn: " + (", ".join(f"{r} ({c})" for r, c in blocked.most_common()) or "không có"))
     L.append("- Cổng chưa duyệt mà vẫn gọi lệnh: " + (", ".join(f"{g} ({c})" for g, c in gate_blocked.items()) or "không có"))
     L.append("- Tool lỗi: " + (", ".join(f"{t} ({c})" for t, c in tool_fail.most_common()) or "không có"))
+    L.append("- Câu trả lời có dấu hiệu bỏ dở (lỗi có sẵn, flaky, bỏ qua test, để sau…): "
+             + (", ".join(f"{k} ({c})" for k, c in excuses.most_common()) or "không có"))
+    L.append(f"- Nhắc /compact vì ngữ cảnh lớn: {context_high} lần")
     for t, samples in fail_samples.items():
         for s in samples:
             L.append(f"  - {t}: `{s}`")

@@ -1,7 +1,7 @@
 ---
 name: note
 description: Log a human observation for the project retrospective (what went wrong, what the plugin missed, a good idea). Recorded before Claude reads it.
-argument-hint: "#tag nội dung (tags gợi ý: #spec #estimate #design #build #review #ship #plugin #token #khach)"
+argument-hint: "#tag nội dung (tags gợi ý: #spec #estimate #design #build #review #ship #plugin #token #khach; #lesson = nhắc lại ở đầu mỗi phiên)"
 disable-model-invocation: true
 allowed-tools: Bash
 ---

@@ -70,6 +70,8 @@ Sau dự án: chạy `/dk:retro`, rồi mang `*-retro.md` + `*-metrics.json` và
 | Bất biến nghiệp vụ (cân đối, cộng gộp, idempotent…) | `AC-INV-*` trên dữ liệu vàng, `@Tag("invariant")` | 0 |
 | Hiệu năng | k6 thresholds trong `/dk:ship` | 0 |
 | Lỗ hổng phụ thuộc, SAST | osv-scanner, Semgrep, SpotBugs, PMD | 0 |
+| Agent không nới cổng để cho qua (sửa eslint/tsconfig/SpotBugs/PMD/gitleaks/CI, thêm `@Disabled`, `NOPMD`, `@ts-ignore`, hạ coverage) | Hook `guard.py`; người mở phiên `DK_ALLOW_QUALITY_EDIT=1` khi cần đổi luật | 0 |
+| Test được viết trước và từng đỏ | `dk-evidence.py` RED → GREEN theo AC (Surefire), bảng trong PR | 0 |
 | Lỗi logic, PII, phân quyền | Agent `reviewer` (ngữ cảnh sạch) | có |
 
 ## Tiết kiệm token (gói Pro)
@@ -80,6 +82,11 @@ Sau dự án: chạy `/dk:retro`, rồi mang `*-retro.md` + `*-metrics.json` và
 - Mỗi giai đoạn để lại file → `/clear` thoải mái giữa các giai đoạn.
 
 Đo thử trên brief "báo cáo vân tay" (Sonnet, tính theo giá API để so sánh): `/dk:spec` 9 lượt ≈ $0.77, `/dk:estimate` 6 lượt ≈ $0.27.
+
+## Thay đổi v0.5.0
+- Từ ECC (xem [`docs/review-ecc.md`](docs/review-ecc.md)): chặn agent nới cổng chất lượng và thêm suppression; bằng chứng RED → GREEN theo AC; cảnh báo câu trả lời có dấu hiệu bỏ dở và nhắc `/compact` khi ngữ cảnh lớn (hiện cho người, model không tốn token); `/dk:note #lesson` nhắc lại ở đầu phiên; checklist review injection và upload Excel.
+- Test hồi quy cho hook và script (`plugins/dk/tests/`, chạy trong CI). Sửa lỗi cổng pre-commit không chạy (thiếu `import shutil`) và lỗi chặn nhầm khi commit message/PR body nhắc tới `git push`/`gh pr merge`.
+- Từ runbook hopnhat: tác vụ Windows giữ WSL sống (`exec sleep infinity`), `dk-remote` tự chạy lại khi mất mạng, `setup-wsl.ps1` kiểm ảo hóa + `-MoveTo` ổ khác, `/dk:doctor` báo Docker Desktop lẫn vào PATH và biến môi trường chặn Remote Control, plugin cá nhân để ở `.claude/settings.local.json`.
 
 ## Thay đổi v0.4.0
 - WSL2 + IntelliJ: `setup-wsl.ps1`, `/dk:doctor`, `dk-remote.sh`, `.gitattributes`, `.run/` (chạy/attach debug), `scripts/dev/debug-api.sh`, cảnh báo khi phiên chạy trên Git Bash hoặc `/mnt/c`.
