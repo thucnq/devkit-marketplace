@@ -1,0 +1,5 @@
+# Plugin chạy trong Linux/WSL: LF cho mọi file văn bản; chỉ script Windows dùng CRLF
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.xlsx binary
+*.png binary

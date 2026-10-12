@@ -37,6 +37,7 @@ The golden path already implements everything below. Use the building blocks; ne
 - Insert: set `tenant_id` from `TenantContext.require()` in the entity's `@PrePersist` (extend `TenantEntity`).
 - Jobs outside a request: wrap the work in `TenantContext.runAs(tenantId, () -> ...)` per tenant. No tenant set → RLS returns zero rows (fails safe).
 - Cross-tenant lookups of a resource return 404, never 403.
+- Fail-closed endpoint catalog (from hopnhat): one test enumerates every mapped endpoint (`RequestMappingHandlerMapping`) and fails if any endpoint is not classified (public / authenticated / tenant-scoped with the owning path variable); for tenant-scoped ones it calls the endpoint as a user of another tenant and asserts nothing of the target tenant leaks (status, body markers such as names and tax codes). A new endpoint without a classification breaks the build instead of silently shipping unchecked.
 
 ## Personal data (PII)
 - Annotate personal fields with `@Pii`. `PiiMasker` masks them in logs, audit details and `toString()` (records: implement `toString()` via `PiiMasker.describe(this)`).

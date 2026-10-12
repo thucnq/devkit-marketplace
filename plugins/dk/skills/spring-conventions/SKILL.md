@@ -27,7 +27,7 @@ ArchUnit (`ArchitectureTest`) enforces: controllers → services → repositorie
 - Config via `@ConfigurationProperties` records under `app.*`, documented in `deploy/.env.example`.
 
 ## Database
-- Flyway `V<n>__<slug>.sql`; never edit a committed migration.
+- Flyway `V<yyyyMMddHHmm>__<slug>.sql` (UTC timestamp, `out-of-order: true`) so parallel branches never collide; never edit a committed migration; expand-only (see `check-migrations.sh`).
 - Tenant tables follow the RLS template in `security-baseline`. Grants to `app_rw` come from the default privileges set in V1 — no per-table grant needed.
 - Prefer one well-chosen index per real query; explain-analyze anything that scans > 10k rows.
 

@@ -1,0 +1,11 @@
+<component name="ProjectRunConfigurationManager">
+  <!-- Chạy/Debug API ngay trong IntelliJ. Khi mở project từ \\wsl$ và chọn JDK của WSL, JVM chạy trong Ubuntu. Profile mặc định: dev -->
+  <configuration default="false" name="API (dev)" type="Application" factoryName="Application">
+    <option name="MAIN_CLASS_NAME" value="vn.goldenpath.Application" />
+    <module name="goldenpath-backend" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/backend" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

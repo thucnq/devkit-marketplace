@@ -34,8 +34,14 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v5
-      - name: Acceptance criteria traceability (every mandatory AC has a test)
-        run: python3 tools/ac-trace.py
+        with: { fetch-depth: 0 }
+      - name: Acceptance criteria traceability (every mandatory AC of a started feature has a test)
+        # --started-only: features nobody has started yet are listed, not failed (CI matches the phase).
+        # /dk:review and /dk:ship still enforce every mandatory AC.
+        run: python3 tools/ac-trace.py --started-only
+      - name: Migrations are expand-only and committed ones are untouched
+        if: github.event_name == 'pull_request'
+        run: bash tools/check-migrations.sh "${{ github.event.pull_request.base.sha }}" HEAD
       - name: OpenAPI lint
         run: npx -y @redocly/cli@1 lint docs/api/openapi.yaml
 

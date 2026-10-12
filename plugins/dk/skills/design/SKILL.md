@@ -17,7 +17,7 @@ Scope: $ARGUMENTS (empty = all features in the BRD)
 ## Task
 Read `docs/brd.md`, `docs/acceptance/*.md`, and `${CLAUDE_PLUGIN_ROOT}/skills/security-baseline/SKILL.md`. Then:
 
-1. **Schema** — new Flyway file(s) `backend/src/main/resources/db/migration/V<next>__<slug>.sql`. Never edit an already-committed migration.
+1. **Schema** — new Flyway file(s) `backend/src/main/resources/db/migration/V<yyyyMMddHHmm>__<slug>.sql` (UTC timestamp: `date -u +%Y%m%d%H%M`). Never edit an already-committed migration. Expand-only: add tables/nullable columns/indexes; no DROP/RENAME/type change/SET NOT NULL on existing columns (`check-migrations.sh` fails them unless the file has `-- dk:allow-destructive <reason>`).
    - Every tenant-owned table: `tenant_id uuid not null`, RLS enabled with the policy from the security baseline, index leading with `tenant_id`.
    - Ids `uuid` (generated in app, UUIDv7), money `numeric(19,2)`, instants `timestamptz`, `created_at/updated_at/created_by/updated_by`, optimistic lock `version int`.
    - Sensitive PII columns are `bytea` (encrypted) + optional `<col>_hash bytea` for exact-match lookup.

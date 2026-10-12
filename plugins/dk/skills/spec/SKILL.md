@@ -89,6 +89,9 @@ FEAT is the Mã from `docs/scope.md`. Rules:
 - For each feature, systematically cover: happy path, validation failure, permission denied, not found / other tenant, empty state, concurrency or duplicate submission when relevant, and what is audited.
 - Do not invent business rules. When the input does not say, write the criterion with your best default AND add the question to open-questions.
 
+### 2b. `docs/acceptance/inv.md` — business invariants (only when the system computes money, accounting, stock or aggregates)
+Mã `INV`, criteria `AC-INV-NN`, same format. Properties that must hold for ALL data, not one example — e.g. debit = credit per (company, period); group report = sum of company reports; importing the same file twice changes nothing; a new version replaces only its own period range; every reported number drills down to rows summing to it; a user without access to company A sees nothing of A (API, export, drill-down). They are tested on a **golden dataset** (`backend/src/test/resources/golden/`: synthetic files from a fixed-seed generator + `expected.yaml` computed independently of production code — never real client data). Add the dataset itself as a question in open-questions if the client must supply sample formats.
+
 ### 3. `docs/open-questions.md`
 Table: `| # | Câu hỏi | Vì sao cần chốt | Mặc định nếu khách không trả lời | Ảnh hưởng báo giá (Có/Không) |`. Order by impact on scope/price. These are what the user will send to the client. Carry over unanswered questions from `docs/scope.md`.
 
