@@ -8,7 +8,7 @@ Quy trình giao dự án freelance Java 21 / Spring Boot + Postgres + React vớ
 
 Claude Code, agent, hook, Maven, Docker chạy **trong WSL2**; Windows chỉ chạy IntelliJ và trình duyệt. Chạy trực tiếp trên Windows (Git Bash) gây lỗi CRLF, mất quyền thực thi, hook chạy sai — phiên dk sẽ cảnh báo khi phát hiện.
 
-1. PowerShell (Admin): `plugins/dk/scripts/windows/setup-wsl.ps1` — cài WSL2 + Ubuntu 24.04, ghi `.wslconfig`.
+1. PowerShell (Admin): `plugins/dk/scripts/windows/setup-wsl.ps1 -Drive D` — cài WSL2 + Ubuntu 24.04 vào ổ D (bỏ `-Drive` thì script hỏi chọn ổ; Ubuntu đã ở ổ C thì lệnh này chuyển sang D), ghi `.wslconfig`.
 2. Trong Ubuntu: cài công cụ, Claude Code, clone repo vào `~/` (không đặt ở `/mnt/c`), chạy `/dk:doctor`.
 3. IntelliJ: mở project qua `\\wsl$`, JDK của WSL, cấu hình chạy/debug có sẵn trong `.run/`.
 4. (Tùy chọn) `setup-wsl.ps1 -Configure`: Remote Control tự chạy trong tmux khi đăng nhập Windows.
@@ -82,6 +82,10 @@ Sau dự án: chạy `/dk:retro`, rồi mang `*-retro.md` + `*-metrics.json` và
 - Mỗi giai đoạn để lại file → `/clear` thoải mái giữa các giai đoạn.
 
 Đo thử trên brief "báo cáo vân tay" (Sonnet, tính theo giá API để so sánh): `/dk:spec` 9 lượt ≈ $0.77, `/dk:estimate` 6 lượt ≈ $0.27.
+
+## Thay đổi v0.6.1
+- `setup-wsl.ps1`: chọn ổ đĩa cho Ubuntu khi cài (`-Drive D`, `-InstallDir`, hoặc hỏi kèm dung lượng trống từng ổ), chuyển Ubuntu đang ở C sang ổ khác (`wsl --manage --move`, WSL cũ thì export/import an toàn), đặt `swapFile` cùng ổ, `-Status`. Test PowerShell (`plugins/dk/tests/test_setup_wsl.ps1`) chạy trong CI.
+- `/dk:doctor` cảnh báo khi ổ C còn ít chỗ.
 
 ## Thay đổi v0.6.0
 - **Tính độc lập của agent do hook bảo đảm**, không chỉ nằm trong prompt: `test-author` không đọc được code production (Read/Grep/Bash) và chỉ ghi file test; `reviewer` chỉ ghi `.dk/reviews/`, không chạy lệnh git đổi cây làm việc; `doc-sync` chỉ sửa tài liệu.

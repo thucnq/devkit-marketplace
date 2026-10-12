@@ -43,6 +43,15 @@ mem_kb=$(awk '/MemTotal/{print $2}' /proc/meminfo 2>/dev/null || echo 0)
 [ "${mem_kb:-0}" -ge 5800000 ] && ok "RAM cho Linux: $((mem_kb / 1024 / 1024)) GB" \
   || warn "RAM cho Linux chỉ $((mem_kb / 1024 / 1024)) GB — Testcontainers + Maven + Vite cần ≥ 6 GB (.wslconfig memory=)"
 
+if [ -d /mnt/c ] && grep -qi microsoft /proc/version 2>/dev/null; then
+  c_free_gb=$(df -BG --output=avail /mnt/c 2>/dev/null | tail -1 | tr -dc '0-9')
+  if [ -n "$c_free_gb" ]; then
+    if [ "$c_free_gb" -lt 15 ]; then
+      warn "Ổ C còn ${c_free_gb} GB — nếu Ubuntu nằm ở ổ C, đĩa ảo đầy sẽ hỏng (Bus error/E_FAIL). Chuyển sang ổ khác: (PowerShell Admin) .\\setup-wsl.ps1 -Drive D ; kiểm: .\\setup-wsl.ps1 -Status"
+    else ok "Ổ C còn ${c_free_gb} GB"; fi
+  fi
+fi
+
 echo "== Repo"
 if root="$(git rev-parse --show-toplevel 2>/dev/null)"; then
   case "$root" in
