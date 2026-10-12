@@ -18,11 +18,11 @@ Chi tiết từng bước và xử lý sự cố: [`plugins/dk/templates/golden-
 ## Cài đặt (mỗi thành viên, một lần)
 
 ```bash
-# 1. Đẩy repo này lên GitHub (private), ví dụ thuc/devkit-marketplace
+# 1. Repo marketplace: thucnq/devkit-marketplace
 # 2. Trong Claude Code:
-/plugin marketplace add thuc/devkit-marketplace
+/plugin marketplace add thucnq/devkit-marketplace
 /plugin install dk@thuc-devkit
-/plugin configure dk@thuc-devkit     # đơn giá/giờ, % overhead, marketplace_repo = thuc/devkit-marketplace
+/plugin configure dk@thuc-devkit     # đơn giá/giờ, % overhead, marketplace_repo mặc định thucnq/devkit-marketplace
 ```
 
 Công cụ nên có trên máy (thiếu thì kiểm tra tương ứng báo SKIPPED, không im lặng cho qua):
@@ -83,6 +83,15 @@ Sau dự án: chạy `/dk:retro`, rồi mang `*-retro.md` + `*-metrics.json` và
 
 Đo thử trên brief "báo cáo vân tay" (Sonnet, tính theo giá API để so sánh): `/dk:spec` 9 lượt ≈ $0.77, `/dk:estimate` 6 lượt ≈ $0.27.
 
+## Thay đổi v0.6.0
+- **Tính độc lập của agent do hook bảo đảm**, không chỉ nằm trong prompt: `test-author` không đọc được code production (Read/Grep/Bash) và chỉ ghi file test; `reviewer` chỉ ghi `.dk/reviews/`, không chạy lệnh git đổi cây làm việc; `doc-sync` chỉ sửa tài liệu.
+- Guard chặn thêm việc sửa `.dk/state.md` và migration đã commit **qua lệnh shell** (`echo >>`, `sed -i`).
+- `/dk:ship`: `deploy.sh` từ chối cây làm việc chưa commit, ghi `releases.log` trên máy chủ, `--rollback [tag]` và `--releases`; health lỗi thì quay lại bản trước.
+- Golden path có git hook `pre-commit` cho người (quét bí mật, chặn commit dữ liệu khách / file env); `/dk:new-project` tự bật, `/dk:doctor` nhắc clone chưa bật.
+- `/dk:build` lọc test đúng tên lớp (`-Dtest='<Feature>*'`, Surefire phân biệt hoa thường).
+- `marketplace_repo` mặc định `thucnq/devkit-marketplace` (trước là `OWNER/…`, dự án mới không tự cài được plugin cho đồng đội).
+- CI plugin chạy shellcheck + pyflakes; 19 test hồi quy.
+
 ## Thay đổi v0.5.0
 - Từ ECC (xem [`docs/review-ecc.md`](docs/review-ecc.md)): chặn agent nới cổng chất lượng và thêm suppression; bằng chứng RED → GREEN theo AC; cảnh báo câu trả lời có dấu hiệu bỏ dở và nhắc `/compact` khi ngữ cảnh lớn (hiện cho người, model không tốn token); `/dk:note #lesson` nhắc lại ở đầu phiên; checklist review injection và upload Excel.
 - Test hồi quy cho hook và script (`plugins/dk/tests/`, chạy trong CI). Sửa lỗi cổng pre-commit không chạy (thiếu `import shutil`) và lỗi chặn nhầm khi commit message/PR body nhắc tới `git push`/`gh pr merge`.
@@ -94,14 +103,17 @@ Sau dự án: chạy `/dk:retro`, rồi mang `*-retro.md` + `*-metrics.json` và
 - Từ `hopnhat` (xem [`docs/review-hopnhat.md`](docs/review-hopnhat.md)): migration chỉ thêm + tên timestamp, bất biến nghiệp vụ trên dữ liệu vàng, test endpoint fail-closed, rủi ro theo hạng mục.
 - Sửa 2 lỗi CI đã gặp ở QLDN: `ac-trace --started-only` cho CI; `.dk/log/.sessions/` vào allowlist gitleaks.
 
-## Trạng thái kiểm chứng (v0.2.0)
-- ✅ `claude plugin validate --strict` (plugin + marketplace), cài đặt và chạy `/dk:approve`, `/dk:spec`, `/dk:estimate` thật trong Claude Code 2.1.292.
-- ✅ Hook guard: 30 tình huống chặn/cho phép; hook commit chặn bí mật.
-- ✅ Log: ghi đúng lệnh, prompt (chỉ đếm), tool, hook chặn, kiểm tra, cổng, verdict reviewer, token không đếm trùng; `/dk:note` và `/dk:retro` chạy thật.
-- ✅ Báo giá: công thức tái tạo đúng từng số của file QLDN mẫu (609.700.000 / 616.700.000 …), 0 lỗi công thức.
-- ✅ Frontend golden path: typecheck, lint, 6 test, build.
-- ⚠️ **Backend golden path chưa được biên dịch** (môi trường dựng không truy cập được Maven Central). Mã đã qua google-java-format (parse OK). Workflow `.github/workflows/golden-path.yml` sẽ build + test toàn bộ ở lần push đầu tiên — sửa đỏ trước khi dùng cho khách.
-- ⚠️ `/dk:build`, `/dk:review`, `/dk:ship` chưa chạy thật (cần Maven/Docker).
+## Trạng thái kiểm chứng (v0.6.0)
+| Phần | Trạng thái | Bằng chứng |
+|---|---|---|
+| Manifest plugin + marketplace | ✅ | `claude plugin validate --strict` |
+| Hook guard, dk-evidence, check-migrations, ac-trace, gen-plan, rollback | ✅ | `plugins/dk/tests/` (19 test) chạy trong job `plugin` của CI |
+| Golden path backend + frontend | ✅ | job `scaffold-and-build`: dựng dự án như `/dk:new-project`, `mvn verify -Pquality` (Testcontainers), typecheck/lint/test/build |
+| Báo giá | ✅ | công thức tái tạo đúng file QLDN mẫu (609.700.000 / 616.700.000 …) |
+| `/dk:spec`, `/dk:estimate`, `/dk:approve` | ✅ | chạy thật trên QLDN |
+| Cổng pre-commit | ⚠️ | chỉ chạy đúng từ 0.5.0 (trước đó hook lỗi `shutil` nên không chặn gì) |
+| `/dk:build`, `/dk:review`, `/dk:ship`, `dk-evidence` trên dự án thật | ⚠️ chưa | QLDN mới tới phase design |
+| `setup-wsl.ps1`, `.run/` IntelliJ | ⚠️ chưa | cần thử trên Windows 10 / IntelliJ thật |
 
 ## Cấu trúc
 ```

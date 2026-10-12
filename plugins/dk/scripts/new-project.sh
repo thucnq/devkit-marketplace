@@ -4,7 +4,7 @@ set -euo pipefail
 SLUG="${1:?usage: new-project.sh <slug> [base.package]}"
 [[ "$SLUG" =~ ^[a-z][a-z0-9-]{1,40}$ ]] || { echo "slug must be lowercase kebab-case"; exit 1; }
 PKG="${2:-}"; [ -z "$PKG" ] && PKG="vn.$(echo "$SLUG" | tr -d '-')"
-MARKET="${3:-OWNER/devkit-marketplace}"
+MARKET="${3:-thucnq/devkit-marketplace}"
 [[ "$PKG" =~ ^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$ ]] || { echo "invalid java package: $PKG"; exit 1; }
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")/../templates/golden-path" && pwd)"
 [ -e "$SLUG" ] && { echo "$SLUG already exists"; exit 1; }
@@ -34,7 +34,7 @@ LC_ALL=C grep -rIl --exclude-dir=.git --exclude-dir=node_modules -e 'vn\.goldenp
   sed -e "s/vn\.goldenpath/$PKG/g" -e "s/goldenpath/$SLUG/g" "$f" > "$f.tmp" && mv "$f.tmp" "$f"
 done
 sed -e "s#__MARKETPLACE_REPO__#$MARKET#" .claude/settings.json > .claude/settings.json.tmp && mv .claude/settings.json.tmp .claude/settings.json
-chmod +x deploy/*.sh scripts/dev/*.sh tools/*.sh 2>/dev/null || true
+chmod +x deploy/*.sh scripts/dev/*.sh tools/*.sh .githooks/* 2>/dev/null || true
 
 # maven wrapper (generated locally so the project pins its Maven version)
 if command -v mvn >/dev/null 2>&1; then
@@ -42,6 +42,7 @@ if command -v mvn >/dev/null 2>&1; then
 fi
 
 git init -q -b main
+git config core.hooksPath .githooks   # human commits get the secret scan too
 mkdir -p .dk
 printf '# dk state (managed by dk-state.sh — do not edit)\nphase: spec\nproject: %s\npackage: %s\n' "$SLUG" "$PKG" > .dk/state.md
 git add -A && git commit -q -m "chore: scaffold from dk golden path" && echo "✅ $SLUG created (package $PKG)"

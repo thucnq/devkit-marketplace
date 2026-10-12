@@ -18,10 +18,13 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v5
-      - name: Script syntax
+      - name: Script syntax and lint
         run: |
           for f in plugins/dk/scripts/*.sh plugins/dk/templates/golden-path/deploy/*.sh; do bash -n "$f"; done
           python3 -m py_compile plugins/dk/scripts/*.py
+          shellcheck -S warning plugins/dk/scripts/*.sh plugins/dk/templates/golden-path/scripts/dev/*.sh \
+            plugins/dk/templates/golden-path/tools/*.sh plugins/dk/templates/golden-path/.githooks/pre-commit
+          pipx run pyflakes plugins/dk/scripts/*.py plugins/dk/tests/*.py
       - name: Template copies are in sync
         run: |
           cmp plugins/dk/scripts/ac-trace.py plugins/dk/templates/golden-path/tools/ac-trace.py

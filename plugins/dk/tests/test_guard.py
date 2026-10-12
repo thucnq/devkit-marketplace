@@ -98,6 +98,46 @@ class GuardTest(unittest.TestCase):
     def test_quality_edit_allowed_for_human_session(self):
         self.assertEqual(self.bash("sed -i 's/a/b/' frontend/eslint.config.js", env={"DK_ALLOW_QUALITY_EDIT": "1"}), 0)
 
+    def test_shell_writes_to_state_and_migration(self):
+        self.assertEqual(self.bash("echo 'phase: ship' >> .dk/state.md"), 2)
+        self.assertEqual(self.bash("sed -i 's/a/b/' backend/src/main/resources/db/migration/V1__init.sql"), 2)
+        self.assertEqual(self.bash("bash scripts/dk-state.sh set feature cty"), 0)
+
+    # --- Agent independence -----------------------------------------------------------------------------
+    def agent(self, role, mode, tool, inp):
+        payload = {"tool_name": tool, "tool_input": inp, "cwd": str(self.root), "agent_id": "a1", "agent_type": f"dk:{role}"}
+        return self.run_guard(mode, payload)[0]
+
+    def test_test_author_is_blind(self):
+        prod = str(self.root / "backend/src/main/java/vn/x/feature/cty/CtyService.java")
+        self.assertEqual(self.agent("test-author", "file", "Read", {"file_path": prod}), 2)
+        self.assertEqual(self.agent("test-author", "file", "Read", {"file_path": str(self.root / "frontend/src/App.tsx")}), 2)
+        self.assertEqual(self.agent("test-author", "file", "Read", {"file_path": str(self.root / "docs/api/openapi.yaml")}), 0)
+        self.assertEqual(self.agent("test-author", "file", "Read",
+                                    {"file_path": str(self.root / "frontend/src/features/a/A.test.tsx")}), 0)
+        self.assertEqual(self.agent("test-author", "file", "Grep", {"pattern": "class"}), 2)
+        self.assertEqual(self.agent("test-author", "file", "Grep", {"pattern": "x", "path": "backend/src/main/java"}), 2)
+        self.assertEqual(self.agent("test-author", "file", "Grep", {"pattern": "x", "path": "backend/src/test"}), 0)
+        self.assertEqual(self.agent("test-author", "bash", "Bash", {"command": "cat backend/src/main/java/vn/x/A.java"}), 2)
+        self.assertEqual(self.agent("test-author", "bash", "Bash", {"command": "./mvnw -q -pl backend test-compile"}), 0)
+        self.assertEqual(self.agent("test-author", "bash", "Bash", {"command": "grep -rn Service backend/src"}), 2)
+        self.assertEqual(self.agent("test-author", "bash", "Bash", {"command": "grep -rn AC-CTY backend/src/test"}), 0)
+        self.assertEqual(self.agent("test-author", "file", "Write",
+                                    {"file_path": str(self.root / "backend/src/test/java/vn/x/CtyApiTest.java"), "content": "x"}), 0)
+        self.assertEqual(self.agent("test-author", "file", "Write", {"file_path": prod, "content": "x"}), 2)
+        # the main thread (no agent_id) may read production code
+        self.assertEqual(self.file("Read", file_path=prod), 0)
+
+    def test_reviewer_and_doc_sync_scope(self):
+        self.assertEqual(self.agent("reviewer", "bash", "Bash", {"command": "cat > .dk/reviews/feat-x.md <<'EOF'\nVERDICT: APPROVE\nEOF"}), 0)
+        self.assertEqual(self.agent("reviewer", "bash", "Bash", {"command": "echo x > Foo.java"}), 2)
+        self.assertEqual(self.agent("reviewer", "bash", "Bash", {"command": "git checkout main"}), 2)
+        self.assertEqual(self.agent("reviewer", "bash", "Bash", {"command": "git diff --stat origin/main...HEAD"}), 0)
+        self.assertEqual(self.agent("doc-sync", "file", "Edit", {"file_path": str(self.root / "docs/runbook.md"),
+                                                                 "old_string": "a", "new_string": "b"}), 0)
+        self.assertEqual(self.agent("doc-sync", "file", "Edit", {"file_path": str(self.root / "Foo.java"),
+                                                                 "old_string": "a", "new_string": "b"}), 2)
+
     # --- File tools -------------------------------------------------------------------------------------
     def test_secret_and_state_files(self):
         self.assertEqual(self.file("Read", file_path=str(self.root / ".env")), 2)

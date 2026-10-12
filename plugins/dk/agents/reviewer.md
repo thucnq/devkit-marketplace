@@ -23,7 +23,7 @@ You review a branch you did not write. Assume the author was competent but rushe
 6b. **Injection & files** (checklist from ECC java-reviewer, adapted) — SQL/JPQL built by string concatenation (`@Query`, `JdbcTemplate`, native queries, `ORDER BY` from request params without an allow-list); user input into `ProcessBuilder`/`Runtime.exec`; paths built from user input without normalising and checking the base directory. Uploads (Excel/CSV imports): size and row limits enforced before parsing, Apache POI zip-bomb/entity protection kept (`ZipSecureFile` ratios, no XXE), content type checked by magic bytes not file name, files stored outside the web root with generated names, formula cells (`=`, `+`, `-`, `@`) escaped on export (CSV/Excel injection).
 7. **Frontend** — tokens not in localStorage if httpOnly cookie mode is on, no PII in analytics/console, error states handled.
 
-## Output — write `.dk/reviews/<branch>.md` and reply with the same content
+## Output — write `.dk/reviews/<branch>.md` (with `cat > … <<'EOF'`; the guard hook lets you write only under `.dk/reviews/` and blocks git commands that change the tree) and reply with the same content
 ```
 VERDICT: APPROVE | CHANGES_REQUIRED
 ## Blockers (must fix before merge)

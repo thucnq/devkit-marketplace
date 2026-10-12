@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Git pre-commit for humans (the dk guard hook only covers commits made by Claude).
+# Enable once per clone: git config core.hooksPath .githooks   (/dk:doctor reminds you)
+# Fast on purpose: secrets only. Tests and the rest run in CI and in /dk:review.
+set -uo pipefail
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks protect --staged --redact --no-banner -q || { echo "⛔ gitleaks: có bí mật trong thay đổi đang commit"; exit 1; }
+else
+  pattern='(AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----|ghp_[A-Za-z0-9]{36}|AIza[0-9A-Za-z_-]{35}|(password|secret|api[_-]?key)[[:space:]]*[:=][[:space:]]*["'"'"'][^"'"'"'$\{ ]{8,})'
+  if git diff --cached -U0 -- . ':!*.example' ':!*example.env' | grep -E '^\+' | grep -Eiq "$pattern"; then
+    echo "⛔ thay đổi đang commit giống bí mật (cài gitleaks để biết chính xác dòng nào)"; exit 1
+  fi
+fi
+# never commit real client data or env files
+bad="$(git diff --cached --name-only --diff-filter=A | grep -E '^(docs/input/misa/|docs/input/client-data/)|(^|/)\.env$|^deploy/envs/[^/]+\.env$' | grep -vE 'example|\.gitkeep$|README' || true)"
+[ -z "$bad" ] || { echo "⛔ không commit dữ liệu khách / file env: $bad"; exit 1; }
+exit 0

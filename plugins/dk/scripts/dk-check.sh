@@ -16,7 +16,7 @@ has() { command -v "$1" >/dev/null 2>&1; }
 
 run() { # run <name> <cmd...>
   local name="$1"; shift
-  local out="$LOG/$(echo "$name" | tr ' /' '__').log"
+  local out; out="$LOG/$(echo "$name" | tr ' /' '__').log"
   if "$@" >"$out" 2>&1; then
     RESULTS+=("| $name | PASS |")
   else

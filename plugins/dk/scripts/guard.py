@@ -155,6 +155,16 @@ def check_bash(cmd: str, root: Path) -> None:
                 block(f"Lệnh shell sửa {target} — cấu hình kiểm tra chất lượng, agent không được nới. Sửa code; "
                       "cần đổi luật thì nhờ người (DK_ALLOW_QUALITY_EDIT=1).", "quality_config")
 
+    # 0b. State file and committed migrations: shell writes count like Edit/Write.
+    if (root / ".dk").is_dir():
+        for target in shell_write_targets(cmd):
+            r = rel_path(target, root)
+            if r.endswith(".dk/state.md"):
+                block(".dk/state.md chỉ được sửa qua scripts/dk-state.sh.", "state_edit")
+            if "/db/migration/" in r and (root / r).exists() and subprocess.run(
+                    ["git", "ls-files", "--error-unmatch", r], cwd=root, capture_output=True).returncode == 0:
+                block(f"{r} đã commit — không sửa migration cũ. Tạo file V<yyyyMMddHHmm>__*.sql mới.", "migration_edit")
+
     # 1. Secrets never enter the model's context.
     if is_secret(full):
         block("Lệnh chạm vào file bí mật (.env, deploy/envs/*.env, khóa). Dùng file *.example, "
@@ -256,6 +266,76 @@ def check_quality(tool: str, inp: dict, rel: str, p: Path, root: Path) -> None:
             block(f"pom.xml: không {', '.join(weak)} — cổng chất lượng chỉ người được nới.", "quality_config")
 
 
+# ---------------------------------------------------------------- agent independence (zero tokens)
+# The value of test-author and reviewer is that they are independent of the implementation. Their prompts
+# say so; these rules make it mechanical. Hook payloads carry agent_id/agent_type only inside a subagent.
+PROD_CODE = re.compile(r"(^|/)(backend/src/main/java/|frontend/src/(?!test/)(?!.*\.test\.[jt]sx?$)(?!.*test-utils)[^\s'\"]*\.[jt]sx?$)")
+TEST_WRITE_OK = re.compile(r"^(backend/src/test/|frontend/src/test/|e2e/|frontend/src/.*\.test\.[jt]sx?$|.*test-utils)")
+TEST_READ_OK = re.compile(r"^(docs/|backend/src/test/|backend/src/main/resources/|frontend/src/test/|e2e/|frontend/src/.*\.test\.[jt]sx?$"
+                          r"|.*test-utils|pom\.xml$|backend/pom\.xml$|frontend/package\.json$|\.dk/)")
+DOC_WRITE_OK = re.compile(r"^(docs/|README\.md$|CHANGELOG\.md$|deploy/\.env\.example$)")
+REPO_CHANGING_GIT = re.compile(r"\bgit\s+(commit|push|checkout|switch|reset|stash|rebase|merge|cherry-pick|restore|clean|tag)\b")
+
+
+def agent_role(payload: dict):
+    if not payload.get("agent_id"):
+        return None
+    t = (payload.get("agent_type") or "").split(":")[-1]
+    return t if t in ("test-author", "reviewer", "doc-sync") else None
+
+
+def rel_path(path: str, root: Path) -> str:
+    p = Path(path)
+    if not p.is_absolute():
+        return path[2:] if path.startswith("./") else path
+    try:
+        return str(p.resolve().relative_to(root.resolve()))
+    except ValueError:
+        return str(p)
+
+
+def check_agent(role: str, tool: str, inp: dict, root: Path) -> None:
+    if tool == "Bash":
+        cmd = inp.get("command", "")
+        if role == "test-author":
+            reads = re.search(r"\b(grep|rg|ag|cat|less|more|head|tail|sed|awk|find|tree|bat|nl)\b", code_only(cmd))
+            for tok in re.findall(r"[\w./-]+", cmd):
+                r = rel_path(tok, root).rstrip("/")
+                if PROD_CODE.search(r) or (reads and r in ("backend", "backend/src", "backend/src/main", "backend/src/main/java",
+                                                           "frontend", "frontend/src", ".")):
+                    block(f"test-author viết test hộp đen — không đọc code production ({tok}). Dùng docs/api/openapi.yaml, "
+                          "migration và test có sẵn.", "agent_blind")
+        if role in ("reviewer", "doc-sync") and REPO_CHANGING_GIT.search(code_only(cmd)):
+            block(f"{role} không commit/đổi nhánh/sửa cây làm việc — phiên chính làm việc đó.", "agent_git")
+        for target in shell_write_targets(cmd):
+            r = rel_path(target, root)
+            if r.startswith(("/tmp/", "/dev/")):
+                continue
+            ok = {"reviewer": r.startswith(".dk/reviews/"), "doc-sync": bool(DOC_WRITE_OK.match(r)),
+                  "test-author": bool(TEST_WRITE_OK.match(r))}[role]
+            if not ok:
+                block(f"{role} không được ghi {r} (chỉ ghi: "
+                      f"{ {'reviewer': '.dk/reviews/', 'doc-sync': 'docs/, README, deploy/.env.example', 'test-author': 'file test'}[role]}).",
+                      "agent_scope")
+        return
+    path = inp.get("file_path") or inp.get("notebook_path") or inp.get("path") or ""
+    r = rel_path(path, root) if path else ""
+    if role == "test-author":
+        if tool == "Grep" and (not r or r in (".", "")):
+            block("test-author: Grep phải có `path` trong vùng được đọc (docs/, backend/src/test/, "
+                  "backend/src/main/resources/, file test frontend) — không quét cả repo gồm code production.", "agent_blind")
+        if tool in ("Read", "Grep") and r and not TEST_READ_OK.match(r) and PROD_CODE.search(r + ("/" if tool == "Grep" else "")):
+            block(f"test-author viết test hộp đen — không đọc code production ({r}).", "agent_blind")
+        if tool == "Grep" and r and r.rstrip("/") in ("backend/src/main/java", "frontend/src", "backend/src", "backend", "frontend"):
+            block(f"test-author: Grep trong {r} chạm code production — thu hẹp `path`.", "agent_blind")
+        if tool in ("Edit", "Write", "MultiEdit", "NotebookEdit") and not TEST_WRITE_OK.match(r):
+            block(f"test-author chỉ ghi file test, không ghi {r}.", "agent_scope")
+    elif role == "doc-sync" and tool in ("Edit", "Write", "MultiEdit", "NotebookEdit") and not DOC_WRITE_OK.match(r):
+        block(f"doc-sync chỉ sửa tài liệu, không sửa {r}.", "agent_scope")
+    elif role == "reviewer" and tool in ("Edit", "Write", "MultiEdit", "NotebookEdit") and not r.startswith(".dk/reviews/"):
+        block(f"reviewer chỉ đọc (được ghi .dk/reviews/), không sửa {r}.", "agent_scope")
+
+
 def main() -> None:
     mode = sys.argv[1] if len(sys.argv) > 1 else "bash"
     try:
@@ -265,6 +345,9 @@ def main() -> None:
     root = project_dir(payload)
     inp = payload.get("tool_input") or {}
     _CTX.update(cwd=str(root), tool=payload.get("tool_name") or mode)
+    role = agent_role(payload)
+    if role and (root / ".dk").is_dir():
+        check_agent(role, "Bash" if mode == "bash" else payload.get("tool_name", ""), inp, root)
     if mode == "bash":
         check_bash(inp.get("command", ""), root)
     else:
