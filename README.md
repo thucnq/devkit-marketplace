@@ -83,6 +83,9 @@ Sau dự án: chạy `/dk:retro`, rồi mang `*-retro.md` + `*-metrics.json` và
 
 Đo thử trên brief "báo cáo vân tay" (Sonnet, tính theo giá API để so sánh): `/dk:spec` 9 lượt ≈ $0.77, `/dk:estimate` 6 lượt ≈ $0.27.
 
+## Thay đổi v0.7.1
+- `dk-state.sh require`: sửa lỗi thoát mã 1 khi spec không đổi sau khi duyệt (làm `/dk:design`, `/dk:build` dừng dù cổng đã duyệt) và lỗi cú pháp thiếu `fi` của bản vá trước.
+
 ## Thay đổi v0.7.0 — stack profile (Python / TypeScript / Cloudflare)
 Thiết kế: [`docs/design/stack-profile.md`](docs/design/stack-profile.md).
 - `.dk/stack.toml` khai báo thành phần (`python`, `ts-worker`, `react-vite`, `java-maven`); `scripts/dk_stack.py` là nơi duy nhất đọc nó. **Dự án không có file này (QLDN và mọi dự án java-spring) chạy y như 0.6.1** — test so bảng kết quả `dk-check` với bản 0.6.1 đóng băng.
