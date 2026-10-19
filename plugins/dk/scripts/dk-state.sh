@@ -52,7 +52,7 @@ case "${1:-show}" in
       rev="${v##* at }"
       if [ "$rev" != none ] && git rev-parse -q --verify "$rev" >/dev/null 2>&1; then
         changed="$(git diff --name-only "$rev" HEAD -- docs/brd.md docs/acceptance docs/api 2>/dev/null | head -5)"
-        if [ -n "$changed" ]; then echo "⚠️ Spec/contract đã đổi sau khi duyệt: $changed — báo người dùng cân nhắc duyệt lại."
+        if [ -n "$changed" ]; then echo "⚠️ Spec/contract đã đổi sau khi duyệt: $changed — báo người dùng cân nhắc duyệt lại."; fi
       fi
     else
       log gate_blocked gate="$gate"
