@@ -5,7 +5,7 @@
     "email": "thucnguyenquy@gmail.com"
   },
   "metadata": {
-    "description": "Internal plugins for freelance delivery (Java 21 / Spring Boot / Postgres / React)"
+    "description": "Internal plugins for delivery: Java 21 / Spring Boot / Postgres / React, and Python / TypeScript / Cloudflare"
   },
   "plugins": [
     {

@@ -181,12 +181,15 @@ def check_bash(cmd: str, root: Path) -> None:
               "hoặc để script deploy/dk-check tự đọc. Nếu thật sự cần, người dùng tự chạy lệnh.", "secret_read")
 
     # 2. Production is human-only.
-    if re.search(r"deploy\.sh\s+['\"]?prod", flat) or re.search(
+    if re.search(r"deploy(?:-cf)?\.sh\s+['\"]?prod", flat) or re.search(
             r"(--context|--env|-e|ENV=|SPRING_PROFILES_ACTIVE=)\s*=?\s*['\"]?prod(uction)?\b", flat):
         block("Triển khai/ thao tác production chỉ do người thực hiện. Agent chỉ làm trên non-prod.", "prod")
     for h in prod_hosts(root):
         if h and h in full:
             block(f"Lệnh trỏ tới host production ({h}). Agent chỉ làm trên non-prod.", "prod_host")
+
+    # 2b. Cloudflare: `wrangler deploy` without --env IS production. Agents only touch deploy.nonprod_envs.
+    check_wrangler(flat, root)
 
     # 3. Human gates.
     if re.search(r"\bgh\s+pr\s+merge\b", flat):
@@ -220,6 +223,52 @@ def check_bash(cmd: str, root: Path) -> None:
         if r.returncode != 0:
             tail = "\n".join((r.stdout + r.stderr).strip().splitlines()[-25:])
             block("Pre-commit checks FAILED — sửa rồi commit lại:\n" + tail, "precommit_failed")
+
+
+WRANGLER_REMOTE = (  # subcommands that change a live environment (matched on the words after `wrangler`)
+    ("deploy",), ("rollback",), ("versions", "deploy"), ("secret", "put"), ("secret", "delete"), ("secret", "bulk"),
+    ("delete",), ("triggers", "deploy"), ("d1", "delete"), ("d1", "create"), ("kv", "namespace", "delete"),
+)
+WRANGLER_REMOTE_FLAG = (("d1", "migrations", "apply"), ("d1", "execute"), ("kv", "key", "put"), ("kv", "key", "delete"),
+                        ("r2", "object", "put"), ("r2", "object", "delete"))
+
+
+def nonprod_envs(root: Path) -> set:
+    try:
+        st = load_stack(root)
+    except StackError:
+        st = None
+    dep = st.deployer() if st else None
+    envs = (dep.deploy.get("nonprod_envs") if dep else None) or ["staging"]
+    return {str(e) for e in envs if not str(e).lower().startswith("prod")}
+
+
+def check_wrangler(flat: str, root: Path) -> None:
+    if "wrangler" not in flat:
+        return
+    for seg in re.split(r"\|\||&&|[;|]", flat):
+        m = re.search(r"\bwrangler\s+(.*)", seg)
+        if not m:
+            continue
+        words = m.group(1).split()
+        pos = [w for w in words if not w.startswith("-")]
+        if pos[:3] == ["d1", "time-travel", "restore"]:
+            block("Khôi phục D1 (time-travel restore) ghi đè dữ liệu — chỉ người làm, theo docs/runbook.md.", "prod")
+        live = any(tuple(pos[:len(c)]) == c for c in WRANGLER_REMOTE)
+        live = live or (any(tuple(pos[:len(c)]) == c for c in WRANGLER_REMOTE_FLAG) and "--remote" in words)
+        if not live or "--dry-run" in words:
+            continue
+        env = None
+        for i, w in enumerate(words):
+            if w in ("--env", "-e") and i + 1 < len(words):
+                env = words[i + 1].strip("'\"")
+            elif w.startswith("--env="):
+                env = w.split("=", 1)[1].strip("'\"")
+        allowed = nonprod_envs(root)
+        if env not in allowed:
+            block(f"`wrangler {' '.join(pos[:3])}` {'không có --env' if env is None else f'với --env {env}'} là thao tác "
+                  f"trên production (cấu hình top-level của wrangler). Agent chỉ được dùng --env {'/'.join(sorted(allowed))}; "
+                  "production do người làm.", "prod")
 
 
 def check_file(tool: str, inp: dict, root: Path) -> None:

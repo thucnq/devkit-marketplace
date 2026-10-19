@@ -1,6 +1,6 @@
 # Thiết kế: stack profile — dk 0.7.0 hỗ trợ Python / TypeScript / Cloudflare
 
-> Trạng thái: **chờ duyệt** (chưa code). Ngày 2026-10-19. Động lực: dự án cá nhân Lẩu Meme (pipeline Python + Cloudflare Worker TypeScript + D1 + React/Vite).
+> Trạng thái: **đã duyệt 2026-10-19** (4 câu hỏi mục 15: đồng ý cả 4) — đã hiện thực trong 0.7.0. Động lực: dự án cá nhân Lẩu Meme (pipeline Python + Cloudflare Worker TypeScript + D1 + React/Vite).
 > Ràng buộc cứng: dự án **không có** `.dk/stack.toml` (QLDN và mọi dự án java-spring) chạy **y hệt 0.6.1** — có test chứng minh.
 
 ## 1. Vấn đề

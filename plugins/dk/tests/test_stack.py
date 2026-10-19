@@ -37,7 +37,7 @@ STACK = textwrap.dedent("""\
     src_dirs = ["worker/src"]
     test_dirs = ["worker/test"]
     migration = { kind = "wrangler-seq", dir = "worker/migrations" }
-    deploy = { kind = "cloudflare", config = "worker/wrangler.jsonc", health = "/api/health", nonprod_envs = ["staging"] }
+    deploy = { kind = "cloudflare", config = "worker/wrangler.jsonc", health = "/api/health", nonprod_envs = ["staging"], d1_binding = "DB" }
 
     [[component]]
     name = "web"
@@ -457,6 +457,106 @@ class PartTimePlanTest(unittest.TestCase):
             self.assertIn("Giờ/tuần: 20", (root / "docs/plan/tien-do.md").read_text())
             r = sh(root, "python3", str(SCRIPTS / "gen-plan.py"), "--hours-per-week", "0.5")
             self.assertEqual(r.returncode, 1)
+
+
+class DeployCloudflareTest(unittest.TestCase):
+    """deploy-cf.sh with a fake `npx wrangler` and `curl`: records releases, auto-rollback, refuses production."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name) / "repo"
+        self.root.mkdir()
+        make_repo(self.root)
+        (self.root / ".gitignore").write_text(".dk/releases/\n")
+        git(self.root, "add", "-A")
+        git(self.root, "commit", "-qm", "ignore")
+        self.bin = Path(self.tmp.name) / "bin"
+        self.bin.mkdir()
+        self.calls = Path(self.tmp.name) / "calls.log"
+        (self.bin / "npx").write_text(textwrap.dedent(f"""\
+            #!/usr/bin/env bash
+            echo "$*" >> {self.calls}
+            n=$(grep -c ' deploy --env' {self.calls})
+            case "$*" in
+              *" deploy --env"*) echo "Uploaded"; echo "  https://demo-staging.acc.workers.dev"; echo "Current Version ID: 0000000$n-aaaa-bbbb" ;;
+            esac
+            exit 0
+            """))
+        (self.bin / "curl").write_text(f"#!/usr/bin/env bash\n[ -f {self.tmp.name}/down ] && exit 7 || exit 0\n")
+        for f in ("npx", "curl"):
+            (self.bin / f).chmod(0o755)
+        self.env = {**os.environ, "PATH": f"{self.bin}:{os.environ['PATH']}", "DK_HEALTH_TRIES": "2", "DK_HEALTH_SLEEP": "0"}
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def cf(self, *args):
+        return sh(self.root, "bash", str(SCRIPTS / "deploy-cf.sh"), *args, env=self.env)
+
+    def test_deploy_record_and_auto_rollback(self):
+        r = self.cf("staging")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("d1 migrations apply DB --env staging --remote", self.calls.read_text())
+        log = (self.root / ".dk/releases/staging.log").read_text().splitlines()
+        self.assertTrue(log[-1].endswith("\tok"))
+        self.assertIn("00000001-aaaa-bbbb", log[-1])
+        self.assertEqual(self.cf("staging", "--url").stdout.strip(), "https://demo-staging.acc.workers.dev")
+        Path(self.tmp.name, "down").write_text("")
+        r = self.cf("staging")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("rollback 00000001-aaaa-bbbb --env staging -y", self.calls.read_text())
+        self.assertTrue((self.root / ".dk/releases/staging.log").read_text().splitlines()[-1].endswith("\trollback"))
+
+    def test_manual_rollback_to_previous_good(self):
+        self.cf("staging")
+        self.cf("staging")
+        r = self.cf("staging", "--rollback")
+        self.assertEqual(r.returncode, 0, r.stdout)
+        self.assertIn("rollback 00000001-aaaa-bbbb", self.calls.read_text())
+
+    def test_refuses_production_dirty_tree_and_unknown_env(self):
+        self.assertEqual(self.cf("production").returncode, 2)
+        self.assertEqual(self.cf("preview").returncode, 2)
+        (self.root / "worker/src/index.ts").write_text("export default {x:1}\n")
+        r = self.cf("staging")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("chưa commit", r.stdout)
+        self.assertFalse(self.calls.exists())
+
+
+class GuardWranglerTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        cls.root = Path(cls.tmp.name)
+        make_repo(cls.root)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def bash(self, cmd):
+        e = {**os.environ, "CLAUDE_PROJECT_DIR": str(self.root), "CLAUDE_PLUGIN_ROOT": str(SCRIPTS.parent)}
+        return sh(self.root, "python3", str(SCRIPTS / "guard.py"), "bash", env=e,
+                  inp=json.dumps({"tool_name": "Bash", "tool_input": {"command": cmd}, "cwd": str(self.root)})).returncode
+
+    def test_production_is_human_only(self):
+        for cmd in ["npx wrangler deploy", "cd worker && npx wrangler deploy", "npx wrangler deploy --env production",
+                    "npx wrangler rollback abc -y", "npx wrangler secret put ADMIN_TOKEN",
+                    "npx wrangler d1 migrations apply DB --remote", "npx wrangler d1 execute DB --remote --command 'delete from x'",
+                    "npx wrangler versions deploy v1@100%", "npx wrangler d1 time-travel restore DB --env staging",
+                    "npx wrangler delete", "bash deploy-cf.sh production"]:
+            with self.subTest(cmd=cmd):
+                self.assertEqual(self.bash(cmd), 2)
+
+    def test_staging_and_local_allowed(self):
+        for cmd in ["npx wrangler deploy --env staging", "npx wrangler deploy --env=staging", "npx wrangler deploy -e staging",
+                    "npx wrangler deploy --dry-run --outdir=dist", "npx wrangler d1 migrations apply DB --local",
+                    "npx wrangler d1 execute DB --local --command 'select 1'", "npx wrangler dev",
+                    "npx wrangler rollback abc --env staging -y", "npx wrangler tail --env staging",
+                    "bash deploy-cf.sh staging", "git commit -m 'docs: wrangler deploy chỉ người làm'"]:
+            with self.subTest(cmd=cmd):
+                self.assertEqual(self.bash(cmd), 0)
 
 
 if __name__ == "__main__":
