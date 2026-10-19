@@ -1,7 +1,7 @@
 ---
 name: plan
 description: Build or refresh the project schedule from the estimate — Gantt chart (docs/plan/gantt.html, Mermaid docs/plan/gantt.md) and the progress checklist docs/plan/tien-do.md that humans tick.
-argument-hint: "[cập nhật | rebaseline | bắt đầu YYYY-MM-DD | N kỹ sư | gồm tùy chọn]"
+argument-hint: "[cập nhật | rebaseline | bắt đầu YYYY-MM-DD | N kỹ sư | H giờ/tuần | gồm tùy chọn]"
 disable-model-invocation: true
 allowed-tools: Read, Edit, Bash
 ---
@@ -21,6 +21,6 @@ User request: $ARGUMENTS
    - `risk`: `HIGH` for money/accounting, permissions/tenancy, imports, PII, external systems; `LOW` for plain CRUD/UI; else `MEDIUM`.
    - `crew`: 2 only for items ≥ 10 points that can really be split.
    - `params.start_date` (ask the user if not given in the request; default next Monday), `params.team` (names of the 3 engineers if the user gave them), `params.holidays` (official VN holidays for the project years if known — Tết, Giỗ Tổ, make-up days; otherwise leave unset and mention the default).
-3. Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/gen-plan.py"` plus flags from the request: `--start YYYY-MM-DD`, `--engineers N`, `--include-optional`, `--rebaseline` (only when the user explicitly says rebaseline / lập lại kế hoạch gốc — it overwrites the baseline dates "KH").
+3. Run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/gen-plan.py"` plus flags from the request: `--start YYYY-MM-DD`, `--engineers N`, `--hours-per-week H` (part-time: "20 giờ/tuần", "--hours-per-week 20"; also store it as `params.hours_per_week` so later runs keep it — changing it on an existing plan needs `--rebaseline`), `--include-optional`, `--rebaseline` (only when the user explicitly says rebaseline / lập lại kế hoạch gốc — it overwrites the baseline dates "KH").
 4. Never edit `docs/plan/tien-do.md` by hand-written content: humans tick it (or use the "Tải tien-do.md" button in `gantt.html`); the script merges it. If the user tells you progress in chat ("CTY xong", "IMP 50%, Nam làm"), apply it with Edit to that item's line only (`[x]`, `tiến độ: N%`, `người:`, `bắt đầu:`, `xong:` in YYYY-MM-DD; remove "(theo AC)" when setting a % by hand), then run step 3 again.
 5. Reply in Vietnamese, max 8 lines, copying numbers from the script output (never compute dates yourself): planned vs forecast acceptance date and slip, % done, late items (max 5), files written. Mention that `docs/plan/gantt.html` opens offline in any browser and `docs/plan/gantt.md` renders on GitHub. Suggest committing `docs/plan/` and `docs/estimate/items.json` together.

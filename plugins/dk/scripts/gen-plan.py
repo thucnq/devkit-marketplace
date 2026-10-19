@@ -2,8 +2,8 @@
 """Schedule + progress from the estimate. Deterministic, no LLM, standard library only.
 
 Usage:
-  gen-plan.py [docs/estimate/items.json] [--start YYYY-MM-DD] [--engineers N] [--include-optional]
-              [--rebaseline] [--out docs/plan]
+  gen-plan.py [docs/estimate/items.json] [--start YYYY-MM-DD] [--engineers N] [--hours-per-week H]
+              [--include-optional] [--rebaseline] [--out docs/plan]
   gen-plan.py --summary            one status line (session-start hook)
 
 Reads   docs/estimate/items.json         (items, params; see skills/estimate/items.schema.md)
@@ -15,6 +15,8 @@ Writes  docs/plan/tien-do.md             checklist: items + their ACs, baseline 
         docs/plan/plan.json              computed schedule (for other tools)
 
 Scheduling: effort (days) = points × (1 + overhead_pct); one engineer per item unless "crew": n.
+Part-time (personal projects): --hours-per-week H (or params.hours_per_week) stretches every item by 40 / H
+(1 point = one 8-hour day), e.g. 20 h/week ⇒ twice as many calendar workdays. Unset ⇒ full-time as before.
 List scheduling in item order over `engineers` lanes, honouring "deps" ("*" = every earlier item).
 Baseline ("KH") is frozen in tien-do.md on first run; `--rebaseline` recomputes it.
 Forecast ("DB") replans remaining work from today using actual starts, % done and finish dates.
@@ -202,6 +204,7 @@ def main():
     ap.add_argument("items", nargs="?", default="docs/estimate/items.json")
     ap.add_argument("--start")
     ap.add_argument("--engineers", type=int)
+    ap.add_argument("--hours-per-week", type=float)
     ap.add_argument("--include-optional", action="store_true")
     ap.add_argument("--rebaseline", action="store_true")
     ap.add_argument("--summary", action="store_true")
@@ -221,6 +224,12 @@ def main():
     overhead = float(p.get("overhead_pct", 0.3))
     team = p.get("team") or []
     n_eng = a.engineers or int(p.get("engineers", max(1, len(team)) or 3))
+    hpw = a.hours_per_week or p.get("hours_per_week")
+    hpw = float(hpw) if hpw else None
+    if hpw is not None and not 1 <= hpw <= 80:
+        print(f"gen-plan: hours_per_week = {hpw} không hợp lệ (1–80)")
+        return 1
+    stretch = 40.0 / hpw if hpw else 1.0
     lanes = [str(t) for t in team][:n_eng] + [f"Kỹ sư {i + 1}" for i in range(len(team), n_eng)]
     stored_start = re.search(r"Bắt đầu dự án: (\d{4}-\d{2}-\d{2})", prog_path.read_text(encoding="utf-8")) if prog_path.exists() else None
     stored = stored_start.group(1) if stored_start else None
@@ -247,7 +256,7 @@ def main():
         seen.add(iid)
         pts = float(raw.get("points", 0))
         crew = max(1, int(raw.get("crew", 1)))
-        days = max(1, math.ceil(pts * (1 + overhead) / crew))
+        days = max(1, math.ceil(pts * (1 + overhead) / crew * stretch))
         prefixes = raw.get("ac") or sorted(set(re.findall(r"AC-[A-Z0-9]+", raw.get("desc", ""))))
         if isinstance(prefixes, str):
             prefixes = [prefixes]
@@ -314,7 +323,7 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
     meta = {
         "title": data.get("title", "Kế hoạch dự án").replace("BÁO GIÁ", "KẾ HOẠCH"),
-        "start": start, "engineers": n_eng, "lanes": lanes, "overhead": overhead,
+        "start": start, "engineers": n_eng, "lanes": lanes, "overhead": overhead, "hours_per_week": hpw,
         "kh_uat": kh_uat, "fc_uat": fc_uat, "today": TODAY, "uat_weeks": int(p.get("uat_weeks", 2)),
         "holidays": sorted(d for d in cal.h if start - dt.timedelta(days=7) <= d <= fc_uat[1] + dt.timedelta(days=60)),
         "pct": round(done_pct, 1), "counts": counts, "slip": slip, "src": str(src),
@@ -361,6 +370,7 @@ def render_md(items, m):
          "`tiến độ: N%`, `người`, `bắt đầu`, `xong` (YYYY-MM-DD), `ghi chú` — giữ nguyên dấu ` · ` giữa các trường. "
          "Chạy lại `/dk:plan` để tính dự báo và vẽ lại `gantt.html`. `KH` là kế hoạch gốc, chỉ đổi bằng `/dk:plan rebaseline`.",
          f"> Bắt đầu dự án: {m['start']} · Kỹ sư: {m['engineers']} ({', '.join(m['lanes'])}) · "
+         + (f"Giờ/tuần: {m['hours_per_week']:g} · " if m.get("hours_per_week") else "") +
          f"Nghiệm thu KH: {m['kh_uat'][1]} · Dự báo: {m['fc_uat'][1]} · Cập nhật: {m['today']}", ""]
     line_of = {}
     module = None

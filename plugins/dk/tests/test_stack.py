@@ -436,5 +436,28 @@ class SessionStartTest(unittest.TestCase):
             self.assertIn("stack: py-ts-cloudflare", r.stdout)
 
 
+class PartTimePlanTest(unittest.TestCase):
+    """/dk:plan --hours-per-week: personal projects run part-time; unset keeps the full-time schedule."""
+
+    def plan(self, root, *flags):
+        r = sh(root, "python3", str(SCRIPTS / "gen-plan.py"), *flags)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        return {i["id"]: i for i in json.loads((root / "docs/plan/plan.json").read_text())["items"]}
+
+    def test_twenty_hours_doubles_duration(self):
+        with tempfile.TemporaryDirectory() as t:
+            root = Path(t)
+            (root / "docs/estimate").mkdir(parents=True)
+            (root / "docs/estimate/items.json").write_text(json.dumps({
+                "params": {"engineers": 1, "overhead_pct": 0.3, "start_date": "2026-11-02", "holidays": [], "uat_weeks": 0},
+                "items": [{"id": "NEN", "name": "Khởi tạo", "points": 3}]}))
+            self.assertEqual(self.plan(root)["NEN"]["kh"], ["2026-11-02", "2026-11-05"])             # 3.9 → 4 days
+            self.assertEqual(self.plan(root, "--hours-per-week", "20", "--rebaseline")["NEN"]["kh"],
+                             ["2026-11-02", "2026-11-11"])                                          # 7.8 → 8 days
+            self.assertIn("Giờ/tuần: 20", (root / "docs/plan/tien-do.md").read_text())
+            r = sh(root, "python3", str(SCRIPTS / "gen-plan.py"), "--hours-per-week", "0.5")
+            self.assertEqual(r.returncode, 1)
+
+
 if __name__ == "__main__":
     unittest.main()
