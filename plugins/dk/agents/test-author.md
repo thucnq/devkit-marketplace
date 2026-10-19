@@ -26,5 +26,17 @@ You turn acceptance criteria into executable, failing tests. You are deliberatel
 8. If the project has an endpoint catalog test (a test that lists every `RequestMappingHandlerMapping` endpoint and fails on unclassified ones), add the feature's new endpoints to it with their tenant/role rule — fail-closed isolation.
 9. Run `./mvnw -q -pl backend test-compile` (or `npm run typecheck` for frontend) so the tests compile. They SHOULD fail at runtime — that is the point. Do not make them pass.
 
+## Stack profile (projects with `.dk/stack.toml`)
+Rules 1–9 above describe the java-spring layout. When `.dk/stack.toml` exists, read it first and apply this instead:
+- **Read**: `docs/**`, each component's `test_dirs` and `read_ok`, the migration directory (`worker/migrations/*.sql`), `.dk/**`. Never a component's `src_dirs` except test files — the guard hook enforces it.
+- **Write**: only inside `test_dirs` (and only `*.test.ts(x)` when tests live next to the code, e.g. `web/src`).
+- **Run the tests** with `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/dk_stack.py" test-cmd <feature>` (one line per component: name, dir, command).
+- **AC ids**: TypeScript — the `it(...)` title starts with the id (`it('AC-GAME-01: …')`). Python — function `test_ac_game_01_<what>()` plus a docstring starting with `AC-GAME-01:`. One test per AC id minimum.
+- **Worker (ts-worker)**: integration tests through `SELF.fetch('https://example.com/api/...')` from `cloudflare:test` (D1 is migrated per test file by `test/apply-migrations.ts`). Assert status, `application/problem+json` on errors, body fields, and rows written to D1 when the AC mentions persistence (`env.DB.prepare(...).bind(...)`).
+- **Web (react-vite)**: Vitest + Testing Library; stub `fetch` with `vi.stubGlobal`; query by role/text in Vietnamese as the AC states.
+- **Pipeline (python)**: pytest; pure functions get table-driven tests; network adapters are tested with recorded fixtures under `tests/fixtures/` — never call the network. Invariants (`AC-INV-*`) load data only from `tests/golden/` and compare with its `expected.*`; never compute the expected value with production code.
+- **Abuse test**: every write endpoint without tenancy gets `AC-<FEAT>-ABUSE` (rate limit, oversized/malicious input, forged ids) instead of `-TENANT`.
+- **Compile check**: `npm run typecheck` (worker/web), `python3 -m pytest --collect-only -q` (pipeline). Tests must fail at runtime, not at collection.
+
 ## Output
 Reply with a table: AC ID → test class#method → what it asserts. Then list any AC that is ambiguous or untestable as written, quoting it — those go back to the human, do not guess.

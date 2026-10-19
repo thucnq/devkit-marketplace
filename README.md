@@ -1,6 +1,6 @@
 # thuc-devkit — plugin `dk` (Delivery Kit) cho Claude Code
 
-Quy trình giao dự án freelance Java 21 / Spring Boot + Postgres + React với **3 agent**, **12 lệnh**, và **cổng kiểm soát tất định không tốn token**.
+Quy trình giao dự án với **3 agent**, **12 lệnh**, và **cổng kiểm soát tất định không tốn token**. Hai golden path: **java-spring** (Java 21 / Spring Boot + Postgres + React, dự án freelance) và **py-ts-cloudflare** (pipeline Python + Cloudflare Worker TypeScript + D1 + React, từ 0.7.0).
 
 > Nguyên tắc: agent sinh ra → máy kiểm chứng → người quyết định. Người chỉ duyệt 3 cổng: chốt spec, chốt contract, merge.
 
@@ -34,15 +34,15 @@ Dự án tạo bằng `/dk:new-project` có sẵn `.claude/settings.json` tự b
 
 | Lệnh | Việc | Đầu ra | Cổng |
 |---|---|---|---|
-| `/dk:new-project <slug>` | Sinh dự án từ golden path | Repo chạy được, CI, deploy | – |
+| `/dk:new-project <slug> [--stack py-ts-cloudflare]` | Sinh dự án từ golden path (mặc định java-spring) | Repo chạy được, CI, deploy, `.dk/stack.toml` (py-ts) | – |
 | `/dk:spec docs/input/` (lần 1) | Ghi chú họp/chat → **đề xuất danh sách tính năng**, có nguồn trích dẫn, cỡ S/M/L, đối chiếu báo giá nếu có | `docs/scope.md` | ✋ bạn sửa và đổi Trạng thái thành *Đã chốt* |
 | `/dk:spec docs/input/` (lần 2) | Phạm vi đã chốt → BRD, tiêu chí nghiệm thu, câu hỏi cho khách | `docs/brd.md`, `docs/acceptance/*.md`, `docs/open-questions.md` | ✋ `/dk:approve spec` |
-| `/dk:estimate` | Chia việc → báo giá theo mẫu QLDN, kèm lịch sơ bộ | `docs/estimate/bao-gia.xlsx`, `docs/plan/*` | – |
-| `/dk:plan [bắt đầu YYYY-MM-DD]` | Lịch theo phụ thuộc + **Gantt** + **checklist tiến độ** (người tick hạng mục/AC, % , ngày thực tế; chạy lại để tính dự báo trễ) | `docs/plan/gantt.html` (offline, có nút tải checklist), `gantt.md` (Mermaid trên GitHub), `tien-do.md` | – |
+| `/dk:estimate [--no-quote]` | Chia việc → báo giá theo mẫu QLDN, kèm lịch sơ bộ (`--no-quote`: dự án cá nhân, chỉ điểm và lịch) | `docs/estimate/bao-gia.xlsx`, `docs/plan/*` | – |
+| `/dk:plan [bắt đầu YYYY-MM-DD] [--hours-per-week H]` | Lịch theo phụ thuộc + **Gantt** + **checklist tiến độ** (người tick hạng mục/AC, % , ngày thực tế; chạy lại để tính dự báo trễ) | `docs/plan/gantt.html` (offline, có nút tải checklist), `gantt.md` (Mermaid trên GitHub), `tien-do.md` | – |
 | `/dk:design` | Schema, OpenAPI, sơ đồ, ADR | migration, `openapi.yaml`, `*.mmd`, `adr/` | ✋ `/dk:approve contract` |
 | `/dk:build <feature>` | `test-author` viết test trước (không nhìn code) → implement đến khi xanh | code + test | – |
 | `/dk:review` | Mọi kiểm tra tất định → `reviewer` độc lập → mở PR kèm bảng truy vết AC | PR | ✋ người merge |
-| `/dk:ship [env]` | Deploy non-prod qua SSH, k6 theo NFR, kiểm tra backup phục hồi được, `doc-sync` | URL staging, tài liệu cập nhật | – |
+| `/dk:ship [env]` | Deploy non-prod: qua SSH + k6 + kiểm tra backup (java-spring) hoặc Cloudflare Workers + D1 + health + tự rollback (py-ts-cloudflare), rồi `doc-sync` | URL staging, tài liệu cập nhật | – |
 | `/dk:note #tag nội dung` | Ghi nhận xét ngay khi gặp vấn đề (tag gợi ý: #spec #build #review #plugin #token #khach) | `.dk/log/` | – |
 | `/dk:doctor [--fix]` | Kiểm tra máy: WSL2, repo ngoài `/mnt/c`, LF, Java 21, Docker, Node 22, gh, Claude Code | báo cáo OK/WARN/FAIL | – |
 | `/dk:retro` | Cuối dự án/mốc: số liệu từ log → phân tích → đề xuất cải tiến plugin | `.dk/retro/<ngày>-report.md`, `-metrics.json`, `-retro.md` | – |
@@ -83,6 +83,15 @@ Sau dự án: chạy `/dk:retro`, rồi mang `*-retro.md` + `*-metrics.json` và
 
 Đo thử trên brief "báo cáo vân tay" (Sonnet, tính theo giá API để so sánh): `/dk:spec` 9 lượt ≈ $0.77, `/dk:estimate` 6 lượt ≈ $0.27.
 
+## Thay đổi v0.7.0 — stack profile (Python / TypeScript / Cloudflare)
+Thiết kế: [`docs/design/stack-profile.md`](docs/design/stack-profile.md).
+- `.dk/stack.toml` khai báo thành phần (`python`, `ts-worker`, `react-vite`, `java-maven`); `scripts/dk_stack.py` là nơi duy nhất đọc nó. **Dự án không có file này (QLDN và mọi dự án java-spring) chạy y như 0.6.1** — test so bảng kết quả `dk-check` với bản 0.6.1 đóng băng.
+- `dk-check.sh`, `ac-trace.py`, `dk-evidence.py` (JUnit XML chung cho Surefire/pytest/vitest), `check-migrations.sh --kind wrangler-seq`, `/dk:build`, `/dk:design`, `/dk:review` theo profile. Test Python gắn AC bằng tên `test_ac_<ma>_<nn>_…`.
+- Guard: phạm vi `test-author` theo profile; chặn `# noqa`, `# type: ignore`, `pytest.mark.skip/xfail`, `pragma: no cover`; `pyproject.toml` chỉ chặn `[tool.ruff|pytest|coverage|mypy]`; `.dev.vars` là bí mật; **`wrangler deploy/rollback/secret put/d1 … --remote` không có `--env <nonprod>` bị chặn** (top-level là production); profile hỏng ⇒ chặn commit và agent.
+- Golden path `py-ts-cloudflare`: Worker phục vụ cả API lẫn web tĩnh (Workers static assets), D1, `@cloudflare/vitest-plugin`, pipeline Python (uv, ruff, pytest), CI + workflow deploy có cổng người cho production. Skill `python-conventions`, `cf-worker-conventions`, checklist review py-ts.
+- `/dk:ship` Cloudflare: `deploy-cf.sh` (migrate D1, deploy `--env`, health, tự rollback, `.dk/releases/<env>.log`, `--rollback`). `/dk:estimate --no-quote`, `/dk:plan --hours-per-week`. `/dk:doctor` theo stack.
+- **Nâng cấp QLDN**: không cần làm gì ngoài `/plugin marketplace update thuc-devkit`.
+
 ## Thay đổi v0.6.1
 - `setup-wsl.ps1`: chọn ổ đĩa cho Ubuntu khi cài (`-Drive D`, `-InstallDir`, hoặc hỏi kèm dung lượng trống từng ổ), chuyển Ubuntu đang ở C sang ổ khác (`wsl --manage --move`, WSL cũ thì export/import an toàn), đặt `swapFile` cùng ổ, `-Status`. Test PowerShell (`plugins/dk/tests/test_setup_wsl.ps1`) chạy trong CI.
 - `/dk:doctor` cảnh báo khi ổ C còn ít chỗ.
@@ -107,11 +116,13 @@ Sau dự án: chạy `/dk:retro`, rồi mang `*-retro.md` + `*-metrics.json` và
 - Từ `hopnhat` (xem [`docs/review-hopnhat.md`](docs/review-hopnhat.md)): migration chỉ thêm + tên timestamp, bất biến nghiệp vụ trên dữ liệu vàng, test endpoint fail-closed, rủi ro theo hạng mục.
 - Sửa 2 lỗi CI đã gặp ở QLDN: `ac-trace --started-only` cho CI; `.dk/log/.sessions/` vào allowlist gitleaks.
 
-## Trạng thái kiểm chứng (v0.6.0)
+## Trạng thái kiểm chứng (v0.7.0)
 | Phần | Trạng thái | Bằng chứng |
 |---|---|---|
 | Manifest plugin + marketplace | ✅ | `claude plugin validate --strict` |
-| Hook guard, dk-evidence, check-migrations, ac-trace, gen-plan, rollback | ✅ | `plugins/dk/tests/` (19 test) chạy trong job `plugin` của CI |
+| Hook guard, dk-evidence, check-migrations, ac-trace, gen-plan, rollback | ✅ | `plugins/dk/tests/` (19 test cũ + 29 test stack profile) chạy trong job `plugin` của CI |
+| Golden path py-ts-cloudflare | ✅ | job `scaffold-py-ts`: dựng dự án, `dk-check full` không FAIL, ac-trace, dk-evidence |
+| `deploy-cf.sh` với Cloudflare thật | ⚠️ chưa | test dùng `wrangler`/`curl` giả; cần một lần deploy staging thật |
 | Golden path backend + frontend | ✅ | job `scaffold-and-build`: dựng dự án như `/dk:new-project`, `mvn verify -Pquality` (Testcontainers), typecheck/lint/test/build |
 | Báo giá | ✅ | công thức tái tạo đúng file QLDN mẫu (609.700.000 / 616.700.000 …) |
 | `/dk:spec`, `/dk:estimate`, `/dk:approve` | ✅ | chạy thật trên QLDN |
@@ -123,9 +134,10 @@ Sau dự án: chạy `/dk:retro`, rồi mang `*-retro.md` + `*-metrics.json` và
 ```
 plugins/dk/
   agents/      test-author (Sonnet), reviewer (Sonnet, read-only), doc-sync (Haiku)
-  skills/      10 lệnh workflow + 4 skill kiến thức (security-baseline, vn-data-protection, spring/react-conventions)
+  skills/      10 lệnh workflow + 6 skill kiến thức (security-baseline, vn-data-protection, spring/react/python/cf-worker-conventions)
   hooks/       guard (Bash + file), format, session-start
   scripts/     dk-state, dk-check, ac-trace, check-migrations, gen-erd, gen-quote, gen-plan (+ gantt-template.html),
-               new-project, deploy, dk-remote, wsl-doctor, windows/setup-wsl.ps1
-  templates/golden-path/   dự án mẫu đầy đủ
+               new-project, deploy, deploy-cf, dk_stack, dk-remote, wsl-doctor, windows/setup-wsl.ps1
+  templates/golden-path/        dự án mẫu java-spring
+  templates/py-ts-cloudflare/   dự án mẫu Python + Cloudflare Worker + D1 + React
 ```

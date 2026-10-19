@@ -6,6 +6,9 @@ Exit 1 when a mandatory AC has no test (this is the deterministic FR gate).
 --started-only: only enforce features (docs/acceptance/<file>.md) that already have at least one AC
 referenced by a test. CI uses it so the gate matches the project phase: before /dk:build starts a
 feature, its ACs are reported but do not fail the build. /dk:review and /dk:ship run without it.
+With .dk/stack.toml (dk 0.7.0) the test files come from each component's test_dirs; Python tests may name the AC
+in snake case (test_ac_graph_01_x ⇒ AC-GRAPH-01) because function names cannot hold dashes. This file is copied
+into projects (tools/ac-trace.py), so it reads the profile itself instead of importing the plugin.
 """
 import re
 import signal
@@ -14,8 +17,26 @@ from pathlib import Path
 
 AC_HEAD = re.compile(r"^###\s+(AC-[A-Z0-9]+-[A-Z0-9]+)\s*[:\-–]\s*(.*)$")
 AC_REF = re.compile(r"\bAC-[A-Z0-9]+-[A-Z0-9]+\b")
+AC_SNAKE = re.compile(r"(?:^|[^A-Za-z0-9])ac_([a-z0-9]+)_([a-z0-9]+)(?=_|[^A-Za-z0-9]|$)", re.I)
 TEST_GLOBS = ["backend/src/test/**/*.java", "backend/src/test/**/*.kt",
               "frontend/src/**/*.test.ts", "frontend/src/**/*.test.tsx", "e2e/**/*.ts"]
+KIND_PATTERNS = {"python": ["test_*.py", "*_test.py"], "ts-worker": ["*.test.ts", "*.spec.ts"],
+                 "react-vite": ["*.test.ts", "*.test.tsx", "*.spec.ts", "*.spec.tsx"], "java-maven": ["*.java", "*.kt"]}
+
+
+def test_globs():
+    """Globs of test files: from .dk/stack.toml when present, else the java-spring layout."""
+    f = Path(".dk/stack.toml")
+    if not f.is_file():
+        return TEST_GLOBS
+    import tomllib  # Python ≥ 3.11; only projects with a stack profile need it
+    globs = ["e2e/**/*.ts"]
+    for c in tomllib.loads(f.read_text(encoding="utf-8")).get("component", []):
+        pats = c.get("test_glob") or KIND_PATTERNS.get(c.get("kind"), [])
+        pats = [pats] if isinstance(pats, str) else pats
+        for d in c.get("test_dirs", []):
+            globs += [f"{d.rstrip('/')}/**/{p}" for p in pats]
+    return globs
 
 
 def load_acs(feature=None):
@@ -36,14 +57,21 @@ def load_acs(feature=None):
 
 def load_refs():
     refs = {}
-    for g in TEST_GLOBS:
+    seen = set()
+    for g in test_globs():
         for f in Path(".").glob(g):
+            if f in seen or "node_modules" in f.parts:
+                continue
+            seen.add(f)
             try:
                 text = f.read_text(encoding="utf-8", errors="ignore")
             except OSError:
                 continue
-            for m in AC_REF.finditer(text):
-                refs.setdefault(m.group(0), set()).add(str(f))
+            ids = [m.group(0) for m in AC_REF.finditer(text)]
+            if f.suffix == ".py":
+                ids += [f"AC-{a.upper()}-{b.upper()}" for a, b in AC_SNAKE.findall(text)]
+            for a in ids:
+                refs.setdefault(a, set()).add(str(f))
     return refs
 
 
@@ -59,7 +87,7 @@ def main():
     not_started = sorted({v["file"] for v in acs.values()} - started)
     missing = [a for a, v in acs.items() if not v["optional"] and a not in refs
                and (not started_only or v["file"] in started)]
-    orphans = sorted(r for r in refs if r not in acs and not r.endswith(("-TENANT", "-VALIDATION"))
+    orphans = sorted(r for r in refs if r not in acs and not r.endswith(("-TENANT", "-VALIDATION", "-ABUSE"))
                      and (not feature or f"-{feature.upper()}-" in r))
     covered = sum(1 for a in acs if a in refs)
     if md:

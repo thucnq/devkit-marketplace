@@ -2,9 +2,13 @@
 # Deterministic quality gates. Writes .dk/check-report.md. Exit 1 if any step FAILED.
 # Modes: precommit | precommit-strict | quick | full
 # Missing tools are SKIPPED (reported), never silently passed.
+# With .dk/stack.toml (0.7.0) the per-language steps come from the stack profile (dk_stack.py); without it this
+# script runs exactly the 0.6.1 java-spring checks.
 set -uo pipefail
 MODE="${1:-quick}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+STACK="$HERE/dk_stack.py"
+PROFILE=0; [ -f .dk/stack.toml ] && PROFILE=1
 mkdir -p .dk
 REPORT=".dk/check-report.md"
 LOG="$(mktemp -d)"
@@ -52,8 +56,35 @@ touches_backend=$(echo "$files" | grep -qE '^(backend/|pom\.xml)' && echo 1 || e
 touches_frontend=$(echo "$files" | grep -qE '^frontend/' && echo 1 || echo 0)
 [ "$MODE" = full ] && touches_backend=1 && touches_frontend=1
 
+# ---- per-language steps from the stack profile ----
+profile_steps() {
+  if ! python3 "$STACK" validate >"$LOG/stack.log" 2>&1; then
+    RESULTS+=("| stack profile (.dk/stack.toml) | **FAIL** |"); FAILED=1
+    { echo; echo "### stack profile"; echo '```'; cat "$LOG/stack.log"; echo '```'; } >> "$LOG/failures.md"
+    return
+  fi
+  mkdir -p .dk/junit .dk/tmp
+  local steps comp step cwd need cmd label first venv
+  steps="$(echo "$files" | python3 "$STACK" steps "$MODE")"
+  while IFS=$'\t' read -r comp step cwd need cmd; do
+    [ -n "$comp" ] || continue
+    label="$comp $step"
+    venv=""; [ -d "$cwd/.venv/bin" ] && venv="$cwd/.venv/bin:"
+    case "$need" in
+      dir:*) [ -d "$cwd/${need#dir:}" ] || { skip "$label" "chạy npm --prefix ${cwd#"$PWD"/} ci"; continue; } ;;
+      py:*) PATH="$venv$PATH" python3 -c "import ${need#py:}" 2>/dev/null \
+              || { skip "$label" "cài môi trường Python của ${cwd#"$PWD"/} (uv sync / pip install -e '.[dev]')"; continue; } ;;
+    esac
+    first="${cmd%% *}"
+    if ! PATH="$venv$PATH" command -v "$first" >/dev/null 2>&1; then skip "$label" "cài $first"; continue; fi
+    run "$label" env PATH="$venv$PATH" bash -c "cd \"$cwd\" && $cmd"
+  done <<< "$steps"
+}
+
+if [ "$PROFILE" = 1 ]; then profile_steps; fi
+
 # ---- backend ----
-if [ -d backend ] && [ "$touches_backend" = 1 ]; then
+if [ "$PROFILE" = 0 ] && [ -d backend ] && [ "$touches_backend" = 1 ]; then
   case "$MODE" in
     precommit)        run "backend compile" $MVN -q -B -pl backend -am compile ;;
     precommit-strict) run "backend unit + ArchUnit" $MVN -q -B -pl backend -am test -DexcludedGroups=api -Dspotless.check.skip=true ;;
@@ -74,7 +105,12 @@ if [ -d docs/acceptance ] && [ "${MODE#precommit}" = "$MODE" ]; then
 fi
 
 # ---- migrations: expand-only, committed ones untouched, timestamp names ----
-if [ -d backend/src/main/resources/db/migration ] && [ "${MODE#precommit}" = "$MODE" ]; then
+if [ "$PROFILE" = 1 ] && [ "${MODE#precommit}" = "$MODE" ]; then
+  MIG="$HERE/check-migrations.sh"; [ -f tools/check-migrations.sh ] && MIG="tools/check-migrations.sh"
+  while IFS=$'\t' read -r mkind mdir; do
+    [ -n "$mkind" ] && [ -d "$mdir" ] && run "migrations $mdir (expand-only)" bash "$MIG" --kind "$mkind" --dir "$mdir"
+  done < <(python3 "$STACK" migrations 2>/dev/null)
+elif [ -d backend/src/main/resources/db/migration ] && [ "${MODE#precommit}" = "$MODE" ]; then
   MIG="$HERE/check-migrations.sh"; [ -f tools/check-migrations.sh ] && MIG="tools/check-migrations.sh"
   run "migrations (expand-only)" bash "$MIG"
 fi
@@ -86,7 +122,15 @@ if [ -f docs/api/openapi.yaml ] && [ "$MODE" = full ]; then
 fi
 
 # ---- SAST & dependencies (full only) ----
-if [ "$MODE" = full ]; then
+if [ "$MODE" = full ] && [ "$PROFILE" = 1 ]; then
+  # shellcheck disable=SC2046
+  if has semgrep; then run "Semgrep" semgrep scan --error --quiet $(python3 "$STACK" semgrep)
+  else skip "Semgrep" "pip install semgrep"; fi
+  lockflags=(); while read -r lf; do [ -n "$lf" ] && lockflags+=("--lockfile=$lf"); done < <(python3 "$STACK" lockfiles 2>/dev/null)
+  if ! has osv-scanner; then skip "osv-scanner" "go install github.com/google/osv-scanner/v2/cmd/osv-scanner@latest"
+  elif [ ${#lockflags[@]} -gt 0 ]; then run "osv-scanner (vulnerable deps)" osv-scanner scan source "${lockflags[@]}"
+  else skip "osv-scanner" "không thấy lockfile"; fi
+elif [ "$MODE" = full ]; then
   if has semgrep; then run "Semgrep" semgrep scan --error --quiet --config p/java --config p/react --config p/secrets --config p/owasp-top-ten
   else skip "Semgrep" "pip install semgrep"; fi
   if has osv-scanner; then run "osv-scanner (vulnerable deps)" osv-scanner scan source -r --lockfile=frontend/package-lock.json --lockfile=pom.xml .
@@ -94,7 +138,7 @@ if [ "$MODE" = full ]; then
 fi
 
 # ---- frontend ----
-if [ -f frontend/package.json ] && [ "$touches_frontend" = 1 ]; then
+if [ "$PROFILE" = 0 ] && [ -f frontend/package.json ] && [ "$touches_frontend" = 1 ]; then
   if [ ! -d frontend/node_modules ]; then skip "frontend" "run npm --prefix frontend ci"
   else
     run "frontend typecheck" npm --prefix frontend run -s typecheck

@@ -1,7 +1,7 @@
 ---
 name: estimate
-description: Build the work breakdown and the client quote (.xlsx, same layout as the QLDN quote) from the BRD and acceptance criteria.
-argument-hint: "[notes: rate, team size, infra option, payment terms]"
+description: Build the work breakdown and the client quote (.xlsx, same layout as the QLDN quote) from the BRD and acceptance criteria. With --no-quote (personal projects) only the points and scheduling fields, no quote.
+argument-hint: "[--no-quote] [notes: rate, team size, hours per week, infra option, payment terms]"
 disable-model-invocation: true
 allowed-tools: Read, Write, Edit, Bash
 ---
@@ -14,6 +14,13 @@ Extra instructions from the user: $ARGUMENTS
 
 ## Quoted scope (if any)
 !`ls docs/input/ 2>/dev/null | grep -iE "hang-muc|bao-gia|quote" || echo "không có file báo giá trong docs/input/"`
+
+## No-quote mode
+If the instructions contain `--no-quote` (or say the project has no client/quote): do steps 1–2 with these changes, skip steps 3–5, then run step 6 and reply.
+- Do not add "Tài liệu bàn giao & đào tạo" and "Triển khai môi trường khách hàng"; keep "Khởi tạo dự án & hạ tầng" (3 points) and "Kiểm thử nghiệm thu & sửa lỗi" (15%).
+- `params`: `"no_quote": true`, `"overhead_pct": 0.1` (no PM/BA/QA layer when one person does everything) unless told otherwise, `"uat_weeks": 0`, `"engineers"` = number of people (default 1), `"hours_per_week"` if the user gave it.
+- Never ask for an hourly rate; do not run `gen-quote.py`; do not write `doi-chieu-bao-gia.md`.
+- Reply (max 6 lines): total points, number of open questions, the gen-plan line (planned finish date), and suggest `/dk:plan --hours-per-week <H>` if hours were not given.
 
 ## Task
 1. Read `docs/scope.md`, `docs/brd.md` and `docs/acceptance/*.md`. One estimate item per feature Mã in `docs/scope.md` (name it after the feature, put the Mã and AC range in `desc`). Also fill the scheduling fields `id` (= Mã), `deps`, `ac`, `risk` described in the schema — `/dk:plan` uses them for the Gantt chart.

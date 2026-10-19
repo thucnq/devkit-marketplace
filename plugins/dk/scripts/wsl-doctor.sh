@@ -73,9 +73,30 @@ else
 fi
 
 echo "== Công cụ"
-if have java; then jv="$(java -version 2>&1 | sed -nE 's/.*version "([0-9]+).*/\1/p' | head -1)"
+# dk 0.7.0: a project with .dk/stack.toml and no java-maven component needs Python/Node/wrangler, not Java/Docker
+PYTS=0
+if [ -n "${root:-}" ] && [ -f "$root/.dk/stack.toml" ] && ! grep -qE 'kind[[:space:]]*=[[:space:]]*"java-maven"' "$root/.dk/stack.toml"; then PYTS=1; fi
+if [ "$PYTS" = 1 ]; then
+  if have python3 && python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)'; then ok "python3 $(python3 -V | awk '{print $2}') (có tomllib)"
+  else fail "Cần Python ≥ 3.11 (đọc .dk/stack.toml): sudo apt install -y python3"; fi
+  have uv && ok "uv $(uv --version | awk '{print $2}')" || warn "Thiếu uv (môi trường pipeline): curl -LsSf https://astral.sh/uv/install.sh | sh — hoặc dùng python3 -m venv + pip"
+  if have node; then nv="$(node -v | tr -d v)"; ver_ge "$nv" 22.0.0 && ok "node $nv" || warn "node $nv < 22"
+  else fail "Thiếu node 22: curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt install -y nodejs"; fi
+  case "$(command -v node 2>/dev/null)" in /mnt/[a-z]/*) fail "node đang lấy từ Windows ($(command -v node)) — cài node trong Ubuntu";; esac
+  for d in $(python3 -c 'import tomllib,sys;print(" ".join(c["root"] for c in tomllib.load(open(sys.argv[1],"rb")).get("component",[]) if c.get("kind") in ("ts-worker","react-vite")))' "$root/.dk/stack.toml" 2>/dev/null); do
+    [ -d "$root/$d/node_modules" ] && ok "$d/node_modules" || warn "Chưa cài thư viện $d: npm --prefix $d ci"
+  done
+  if [ -x "$root/worker/node_modules/.bin/wrangler" ]; then
+    (cd "$root/worker" && WRANGLER_SEND_METRICS=false npx --no-install wrangler whoami 2>&1 | grep -qiE "associated with the email|account id") \
+      && ok "wrangler đã đăng nhập" \
+      || warn "wrangler chưa đăng nhập (chỉ cần khi deploy staging): cd worker && npx wrangler login"
+  fi
+fi
+if [ "$PYTS" = 1 ]; then :
+elif have java; then jv="$(java -version 2>&1 | sed -nE 's/.*version "([0-9]+).*/\1/p' | head -1)"
   [ "${jv:-0}" -ge 21 ] && ok "java $jv" || fail "java $jv < 21: sudo apt install -y openjdk-21-jdk"
 else fail "Thiếu java 21: sudo apt install -y openjdk-21-jdk"; fi
+if [ "$PYTS" = 0 ]; then
 { [ -x "${root:-.}/mvnw" ] && ok "Maven wrapper (./mvnw)"; } || { have mvn && ok "mvn $(mvn -v 2>/dev/null | sed -nE '1s/.* ([0-9.]+).*/\1/p')"; } || warn "Thiếu Maven: sudo apt install -y maven"
 if have node; then nv="$(node -v | tr -d v)"; ver_ge "$nv" 22.0.0 && ok "node $nv" || warn "node $nv < 22"
 else fail "Thiếu node 22: curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt install -y nodejs"; fi
@@ -87,6 +108,7 @@ if have docker; then
   else fail "docker có nhưng không kết nối được daemon: sudo systemctl enable --now docker && sudo usermod -aG docker \$USER (đăng nhập lại), hoặc bật WSL integration trong Docker Desktop"; fi
   docker compose version >/dev/null 2>&1 && ok "docker compose" || warn "Thiếu docker compose v2: sudo apt install -y docker-compose-v2"
 else fail "Thiếu docker (Testcontainers cần): sudo apt install -y docker.io docker-compose-v2"; fi
+fi
 if have python3; then
   python3 -c 'import openpyxl' 2>/dev/null && ok "python3 + openpyxl" || warn "Thiếu openpyxl (báo giá .xlsx): sudo apt install -y python3-openpyxl"
 else fail "Thiếu python3"; fi

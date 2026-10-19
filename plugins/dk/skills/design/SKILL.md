@@ -14,6 +14,11 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 
 Scope: $ARGUMENTS (empty = all features in the BRD)
 
+## Stack
+!`python3 "${CLAUDE_PLUGIN_ROOT}/scripts/dk_stack.py" info 2>/dev/null || echo "stack: java-spring"`
+
+With a stack profile whose migration kind is `wrangler-seq` (Cloudflare D1, SQLite), step 1 differs: new file `cd worker && npx wrangler d1 migrations create DB <slug>` (name `NNNN_<slug>.sql`, numbers strictly increase — `check-migrations.sh --kind wrangler-seq`); ids `TEXT` (UUIDv7 or a stable natural key), instants `INTEGER` epoch milliseconds UTC, booleans `INTEGER` 0/1, JSON as `TEXT` with a `CHECK (json_valid(col))`; no RLS in SQLite — isolation (if any) is a WHERE clause tested by an AC; indexes for every lookup the API does; expand-only rules are the same. Skip `gen-erd.sh` (Postgres only) and draw `docs/db/erd.md` as a small Mermaid `erDiagram`. Read `${CLAUDE_PLUGIN_ROOT}/skills/cf-worker-conventions/SKILL.md` instead of the Spring parts of the security baseline.
+
 ## Task
 Read `docs/brd.md`, `docs/acceptance/*.md`, and `${CLAUDE_PLUGIN_ROOT}/skills/security-baseline/SKILL.md`. Then:
 

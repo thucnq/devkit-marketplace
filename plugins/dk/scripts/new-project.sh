@@ -1,8 +1,42 @@
 #!/usr/bin/env bash
-# Scaffold a project from the golden path. Usage: new-project.sh <slug> [base.package] [marketplace owner/repo]
+# Scaffold a project from a golden path.
+# Usage: new-project.sh <slug> [base.package] [marketplace owner/repo] [--stack java-spring|py-ts-cloudflare]
 set -euo pipefail
-SLUG="${1:?usage: new-project.sh <slug> [base.package]}"
+STACK_NAME="java-spring"; ARGS=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --stack) STACK_NAME="${2:?--stack cần giá trị}"; shift 2 ;;
+    --stack=*) STACK_NAME="${1#--stack=}"; shift ;;
+    *) ARGS+=("$1"); shift ;;
+  esac
+done
+set -- "${ARGS[@]+"${ARGS[@]}"}"
+SLUG="${1:?usage: new-project.sh <slug> [base.package] [marketplace owner/repo] [--stack java-spring|py-ts-cloudflare]}"
 [[ "$SLUG" =~ ^[a-z][a-z0-9-]{1,40}$ ]] || { echo "slug must be lowercase kebab-case"; exit 1; }
+
+if [ "$STACK_NAME" = py-ts-cloudflare ]; then
+  MARKET="${3:-thucnq/devkit-marketplace}"
+  SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")/../templates/py-ts-cloudflare" && pwd)"
+  [ -e "$SLUG" ] && { echo "$SLUG already exists"; exit 1; }
+  SNAKE="$(echo "$SLUG" | tr '-' '_')"
+  cp -R "$SRC" "$SLUG"
+  cd "$SLUG"
+  rm -rf web/node_modules web/dist web/coverage worker/node_modules worker/.wrangler worker/dist worker/coverage \
+         pipeline/.venv pipeline/.pytest_cache pipeline/.ruff_cache pipeline/.coverage .dk/junit .dk/tmp
+  find . -name __pycache__ -type d -prune -exec rm -rf {} +
+  mv pipeline/src/goldenpath_pipeline "pipeline/src/${SNAKE}_pipeline"
+  LC_ALL=C grep -rIl --exclude-dir=.git --exclude-dir=node_modules -e 'goldenpath' . | while read -r f; do
+    sed -e "s/goldenpath_pipeline/${SNAKE}_pipeline/g" -e "s/goldenpath/$SLUG/g" "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+  done
+  sed -e "s#__MARKETPLACE_REPO__#$MARKET#" .claude/settings.json > .claude/settings.json.tmp && mv .claude/settings.json.tmp .claude/settings.json
+  chmod +x tools/*.sh .githooks/* 2>/dev/null || true
+  git init -q -b main
+  git config core.hooksPath .githooks
+  printf '# dk state (managed by dk-state.sh — do not edit)\nphase: spec\nproject: %s\nstack: py-ts-cloudflare\n' "$SLUG" > .dk/state.md
+  git add -A && git commit -q -m "chore: scaffold from dk golden path py-ts-cloudflare" && echo "✅ $SLUG created (stack py-ts-cloudflare)"
+  exit 0
+fi
+[ "$STACK_NAME" = java-spring ] || { echo "stack $STACK_NAME không hỗ trợ (java-spring | py-ts-cloudflare)"; exit 1; }
 PKG="${2:-}"; [ -z "$PKG" ] && PKG="vn.$(echo "$SLUG" | tr -d '-')"
 MARKET="${3:-thucnq/devkit-marketplace}"
 [[ "$PKG" =~ ^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$ ]] || { echo "invalid java package: $PKG"; exit 1; }

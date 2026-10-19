@@ -55,6 +55,8 @@
 | `owner` | Người làm dự kiến (khớp tên trong `params.team`) |
 | `params.start_date` | Ngày bắt đầu; mặc định thứ Hai tuần sau |
 | `params.team` | Tên kỹ sư; thiếu thì dùng "Kỹ sư 1..N" theo `engineers` |
+| `params.hours_per_week` | (0.7.0) Số giờ/tuần mỗi người thực sự dành cho dự án (dự án cá nhân làm ngoài giờ). Thiếu = toàn thời gian (40). Thời lượng mỗi hạng mục × 40 / giờ |
+| `params.no_quote` | (0.7.0) `true` khi dự án không báo giá (`/dk:estimate --no-quote`): `gen-quote.py` không chạy, không có các mục bàn giao cho khách |
 | `params.holidays` | Ngày nghỉ (`YYYY-MM-DD` hoặc `từ..đến`) **thay** cho danh sách âm lịch mặc định; 1/1, 30/4, 1/5, 2/9 luôn được tính |
 | `params.plan_optional` | `true` để đưa hạng mục tùy chọn vào lịch |
 
