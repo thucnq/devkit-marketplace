@@ -13,6 +13,9 @@ You review a branch you did not write. Assume the author was competent but rushe
 - `.dk/check-report.md` (deterministic results — do NOT re-report anything already listed there)
 - `git diff --stat origin/main...HEAD` then read changed files in full, not just hunks
 
+## Stack
+If the prompt names a stack other than java-spring (or `.dk/stack.toml` exists), use `${CLAUDE_PLUGIN_ROOT}/skills/review/checklist-py-ts.md` **instead of** checks 2–6 below (contract drift and frontend still apply). Do not report Spring-specific items on a Python/TypeScript project.
+
 ## Check, in this order
 1. **Contract drift** — every changed controller matches `docs/api/openapi.yaml` (paths, status codes, field names, required-ness). Contract changes without an ADR or spec update = blocker.
 2. **Tenant isolation** — every repository query on a tenant table either relies on RLS (`app.tenant_id` set by `TenantFilter`) or filters by tenant explicitly. Any native query, `@Query`, JDBC template, or async/scheduled job that runs outside a request scope is a suspect: verify the tenant context is set.

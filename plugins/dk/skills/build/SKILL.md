@@ -13,6 +13,11 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent
 ## Feature
 !`test -f docs/acceptance/$feature.md && grep "^### AC-" docs/acceptance/$feature.md || echo "MISSING docs/acceptance/$feature.md"`
 
+## Stack
+!`python3 "${CLAUDE_PLUGIN_ROOT}/scripts/dk_stack.py" test-cmd $feature 2>/dev/null || echo "java-spring (không có .dk/stack.toml): dùng lệnh Maven ở các bước dưới"`
+
+With a stack profile (lines above: `<component>  <dir>  <command>`), **replace every Maven command below with the commands above**, run in their directory (`cd <dir> && <command>`), for the components that hold this feature's tests; they already filter by the feature's AC ids and write JUnit XML to `.dk/junit/` for `dk-evidence.py`. Conventions: `${CLAUDE_PLUGIN_ROOT}/skills/python-conventions/SKILL.md` (pipeline) and `${CLAUDE_PLUGIN_ROOT}/skills/cf-worker-conventions/SKILL.md` (worker, web) instead of the Spring/React ones. "Compile" for RED means `npm run typecheck` / `python3 -m pytest --collect-only`.
+
 ## Steps
 1. `git switch -c feat/$feature` (or switch to it if it exists). Set state: `bash "${CLAUDE_PLUGIN_ROOT}/scripts/dk-state.sh" set feature $feature`.
 2. **Tests first.** Delegate to the `test-author` subagent: "Write acceptance tests for docs/acceptance/$feature.md". Do not write or edit those tests yourself afterwards, except to fix compilation against real class names — and never change what they assert. If an assertion is wrong, it means the AC is wrong: stop and ask the human.

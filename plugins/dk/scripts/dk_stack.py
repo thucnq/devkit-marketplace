@@ -327,7 +327,11 @@ def main(argv) -> int:
         v = feature_vars(argv[1])
         for c in stack.components:
             flt = c.raw.get("test_filter", c.d["test_filter"]).format(**v)
-            print("\t".join([c.name, str(stack.root / c.root), f"{c.command('test')} {flt}".strip()]))
+            cmd = c.command("test")
+            venv_py = stack.root / c.root / ".venv" / "bin" / "python"
+            if c.kind == "python" and venv_py.exists() and cmd.startswith("python3 "):
+                cmd = f"{venv_py} {cmd[len('python3 '):]}"
+            print("\t".join([c.name, str(stack.root / c.root), f"{cmd} {flt}".strip()]))
         return 0
     if cmd == "migrations":
         for kind, d in stack.migrations():

@@ -96,7 +96,9 @@ def run_results():
         except ET.ParseError:
             continue
         for tc in root.iter("testcase"):
-            name, cls = tc.get("name", ""), tc.get("classname", "").rsplit(".", 1)[-1]
+            name, cls = tc.get("name", ""), tc.get("classname", "")
+            # Surefire: vn.x.CtyApiTest → CtyApiTest; vitest: test/health.test.ts → health.test.ts; pytest: tests.test_x
+            cls = cls.rsplit("/", 1)[-1] if "/" in cls else cls.rsplit(".", 1)[-1]
             found = ac_ids(name, python=PROFILE["on"])
             ac = found[0] if found else mm.get((cls, name.split("(")[0]))
             if not ac:
