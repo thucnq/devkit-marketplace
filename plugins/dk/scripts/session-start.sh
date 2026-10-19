@@ -3,6 +3,10 @@
 [ -f .dk/state.md ] || exit 0
 echo "## dk project state"
 grep -vE '^#|^$' .dk/state.md | head -12
+if [ -f .dk/stack.toml ]; then
+  python3 "$(dirname "$0")/dk_stack.py" info 2>/dev/null \
+    || echo "⚠ .dk/stack.toml không hợp lệ: $(python3 "$(dirname "$0")/dk_stack.py" validate 2>&1 | tail -3 | tr '\n' ' ') — sửa trước khi làm tiếp (commit và agent đang bị chặn)."
+fi
 b="$(git branch --show-current 2>/dev/null)"; [ -n "$b" ] && echo "branch: $b ($(git status --porcelain 2>/dev/null | wc -l | tr -d ' ') uncommitted files)"
 [ -f .dk/check-report.md ] && echo "last check: $(head -1 .dk/check-report.md)"
 [ -f docs/plan/tien-do.md ] && python3 "$(dirname "$0")/gen-plan.py" --summary 2>/dev/null | head -1

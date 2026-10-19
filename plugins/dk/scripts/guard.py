@@ -14,16 +14,19 @@ import sys
 from pathlib import Path
 
 PLUGIN_ROOT = Path(os.environ.get("CLAUDE_PLUGIN_ROOT", Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from dk_stack import StackError, load as load_stack  # noqa: E402
 
 SECRET_PATH = re.compile(
     r"(^|[\s/'\"=<])("
     r"\.env(\.[\w-]+)?"            # .env, .env.local, .env.prod
+    r"|\.dev\.vars(\.[\w-]+)?"      # wrangler local secrets: .dev.vars, .dev.vars.staging
     r"|deploy/envs/[\w.-]+\.env"   # deploy/envs/staging.env
     r"|[\w.-]+\.pem|[\w.-]+\.p12|[\w.-]+\.jks|id_(rsa|ed25519|ecdsa)(\.pub)?"
     r"|\.npmrc|\.pgpass|credentials(\.json)?"
     r")(?=$|[\s'\";|&)])"
 )
-SECRET_ALLOW = re.compile(r"(\.env\.example|example\.env|\.env\.sample|id_\w+\.pub)$")
+SECRET_ALLOW = re.compile(r"(\.env\.example|example\.env|\.env\.sample|\.dev\.vars\.example|id_\w+\.pub)$")
 
 
 _CTX = {}
@@ -33,7 +36,8 @@ _CTX = {}
 QUALITY_FILES = re.compile(
     r"(^|/)(eslint\.config\.[cm]?[jt]s|\.eslintrc(\.\w+)?|\.prettierrc(\.\w+)?|prettier\.config\.[cm]?js"
     r"|tsconfig(\.\w+)?\.json|spotbugs-exclude\.xml|[\w-]*pmd[\w-]*\.xml|\.gitleaks\.toml|\.semgrepignore"
-    r"|\.semgrep\.ya?ml|ArchitectureTest\.java|ac-trace\.py|check-migrations\.sh)$"
+    r"|\.semgrep\.ya?ml|ArchitectureTest\.java|ac-trace\.py|check-migrations\.sh"
+    r"|\.?ruff\.toml|pytest\.ini|\.coveragerc|mypy\.ini|vitest\.(?:config|workspace)\.[cm]?[jt]s)$"
     r"|(^|/)\.github/workflows/[^/]+\.ya?ml$")
 SUPPRESSIONS = {
     "@Disabled": r"@Disabled\b", "@Ignore": r"@Ignore\b", "@SuppressFBWarnings": r"@SuppressFBWarnings\b",
@@ -42,6 +46,12 @@ SUPPRESSIONS = {
     "nosemgrep": r"nosemgrep", "gitleaks:allow": r"gitleaks:allow",
     ".skip/.only": r"\b(?:it|test|describe)\.(?:skip|only)\(|\bx(?:it|describe)\(",
 }
+# Python only (dk 0.7.0) — checked in .py files, so a Java project never trips on them.
+SUPPRESSIONS_PY = {
+    "pytest skip/xfail": r"pytest\.mark\.(?:skip|skipif|xfail)\b|\bpytest\.(?:skip|xfail)\(",
+    "# noqa": r"#\s*noqa\b", "# type: ignore": r"#\s*type:\s*ignore", "pragma: no cover": r"pragma:\s*no\s*cover",
+}
+PYPROJECT_GUARDED = ("ruff", "pytest", "coverage", "mypy")
 POM_WEAKEN = {
     "skipTests": r"skipTests|maven\.test\.skip|<skip>\s*true", "testFailureIgnore": r"testFailureIgnore",
     "failOn*=false": r"<fail\w*>\s*false", "haltOnFailure": r"haltOnFailure>\s*false",
@@ -151,7 +161,7 @@ def check_bash(cmd: str, root: Path) -> None:
             target = target.replace("\\", "/")
             if target.startswith("./"):
                 target = target[2:]
-            if QUALITY_FILES.search(target) and (root / target).exists():
+            if (QUALITY_FILES.search(target) or target.endswith("pyproject.toml")) and (root / target).exists():
                 block(f"Lệnh shell sửa {target} — cấu hình kiểm tra chất lượng, agent không được nới. Sửa code; "
                       "cần đổi luật thì nhờ người (DK_ALLOW_QUALITY_EDIT=1).", "quality_config")
 
@@ -200,6 +210,10 @@ def check_bash(cmd: str, root: Path) -> None:
 
     # 4. Pre-commit gate (deterministic checks, no tokens).
     if re.search(r"\bgit\s+commit\b", flat) and (root / ".dk").is_dir():
+        try:
+            load_stack(root)
+        except StackError as e:
+            block(f"{e}\nSửa .dk/stack.toml trước khi commit — profile hỏng thì các cổng không biết chạy gì.", "stack_invalid")
         mode = "precommit-strict" if os.environ.get("CLAUDE_PLUGIN_OPTION_STRICT_GATES", "true") != "false" else "precommit"
         r = subprocess.run([shutil.which("bash"), str(PLUGIN_ROOT / "scripts" / "dk-check.sh"), mode], cwd=root,
                            capture_output=True, text=True)
@@ -254,9 +268,13 @@ def check_quality(tool: str, inp: dict, rel: str, p: Path, root: Path) -> None:
     if not new:
         return
     added = [name for name, rx in SUPPRESSIONS.items() if len(re.findall(rx, new)) > len(re.findall(rx, old))]
+    if rel.endswith(".py"):
+        added += [name for name, rx in SUPPRESSIONS_PY.items() if len(re.findall(rx, new)) > len(re.findall(rx, old))]
     if added and not rel.endswith((".md", ".txt")):
         block(f"Không thêm {', '.join(added)} vào {rel} để né kiểm tra/test. Sửa nguyên nhân; nếu là báo nhầm, "
               "ghi lý do vào PR và nhờ người thêm.", "suppression")
+    if rel.endswith("pyproject.toml"):
+        check_pyproject(tool, inp, rel, p)
     if rel.endswith("pom.xml"):
         weak = [name for name, rx in POM_WEAKEN.items() if len(re.findall(rx, new)) > len(re.findall(rx, old))]
         mins_old, mins_new = re.findall(r"<minimum>\s*([\d.]+)", old), re.findall(r"<minimum>\s*([\d.]+)", new)
@@ -264,6 +282,38 @@ def check_quality(tool: str, inp: dict, rel: str, p: Path, root: Path) -> None:
             weak.append("hạ <minimum> coverage")
         if weak:
             block(f"pom.xml: không {', '.join(weak)} — cổng chất lượng chỉ người được nới.", "quality_config")
+
+
+def check_pyproject(tool: str, inp: dict, rel: str, p: Path) -> None:
+    """pyproject.toml holds dependencies (agents must be able to add them) and the lint/test/coverage rules (they
+    must not loosen them): compare the [tool.ruff|pytest|coverage|mypy] tables before and after the edit."""
+    import tomllib
+    try:
+        old = p.read_text(encoding="utf-8") if p.exists() else ""
+    except OSError:
+        return
+    if tool == "Write":
+        new = inp.get("content") or ""
+    elif tool in ("Edit", "MultiEdit"):
+        new = old
+        edits = inp.get("edits") if tool == "MultiEdit" else [inp]
+        for e in edits or []:
+            a, b = e.get("old_string") or "", e.get("new_string") or ""
+            new = new.replace(a, b) if e.get("replace_all") else new.replace(a, b, 1)
+    else:
+        return
+    try:
+        before = tomllib.loads(old).get("tool", {}) if old else {}
+    except tomllib.TOMLDecodeError:
+        return  # already broken: not this edit's doing
+    try:
+        after = tomllib.loads(new).get("tool", {})
+    except tomllib.TOMLDecodeError as e:
+        block(f"{rel} sẽ sai cú pháp TOML sau khi sửa ({e}) — sửa lại edit.", "quality_config")
+    changed = [k for k in PYPROJECT_GUARDED if before.get(k) != after.get(k)]
+    if changed:
+        block(f"{rel}: không sửa [tool.{', tool.'.join(changed)}] — cấu hình lint/test/coverage chỉ người được đổi "
+              "(DK_ALLOW_QUALITY_EDIT=1). Thêm thư viện vào [project] / [dependency-groups] thì được.", "quality_config")
 
 
 # ---------------------------------------------------------------- agent independence (zero tokens)
@@ -275,6 +325,55 @@ TEST_READ_OK = re.compile(r"^(docs/|backend/src/test/|backend/src/main/resources
                           r"|.*test-utils|pom\.xml$|backend/pom\.xml$|frontend/package\.json$|\.dk/)")
 DOC_WRITE_OK = re.compile(r"^(docs/|README\.md$|CHANGELOG\.md$|deploy/\.env\.example$)")
 REPO_CHANGING_GIT = re.compile(r"\bgit\s+(commit|push|checkout|switch|reset|stash|rebase|merge|cherry-pick|restore|clean|tag)\b")
+
+
+class LegacyScope:
+    """0.6.1 java-spring layout — used whenever the project has no .dk/stack.toml."""
+    roots = ("backend", "backend/src", "backend/src/main", "backend/src/main/java", "frontend", "frontend/src", ".")
+
+    def prod_code(self, r, is_dir=False):
+        return bool(PROD_CODE.search(r + ("/" if is_dir else "")))
+
+    def test_write_ok(self, r):
+        return bool(TEST_WRITE_OK.match(r))
+
+    def test_read_ok(self, r):
+        return bool(TEST_READ_OK.match(r))
+
+    def grep_too_wide(self, r):
+        return r.rstrip("/") in ("backend/src/main/java", "frontend/src", "backend/src", "backend", "frontend")
+
+    write_hint = "file test"
+
+
+class ProfileScope:
+    """Same rules, directories from .dk/stack.toml (src_dirs / test_dirs / read_ok / migration dir)."""
+
+    def __init__(self, stack):
+        self.s = stack
+        self.roots = tuple(stack.source_roots())
+
+    def prod_code(self, r, is_dir=False):
+        return self.s.prod_code(r)
+
+    def test_write_ok(self, r):
+        return self.s.test_write_ok(r)
+
+    def test_read_ok(self, r):
+        return self.s.test_read_ok(r)
+
+    def grep_too_wide(self, r):
+        return r.rstrip("/") in self.roots and r.rstrip("/") != "."
+
+    write_hint = "file test trong test_dirs của .dk/stack.toml"
+
+
+def agent_scope(root: Path):
+    try:
+        stack = load_stack(root)
+    except StackError as e:
+        block(f"{e}\nAgent tạm dừng: không xác định được phạm vi đọc/ghi khi profile hỏng.", "stack_invalid")
+    return ProfileScope(stack) if stack else LegacyScope()
 
 
 def agent_role(payload: dict):
@@ -295,14 +394,14 @@ def rel_path(path: str, root: Path) -> str:
 
 
 def check_agent(role: str, tool: str, inp: dict, root: Path) -> None:
+    sc = agent_scope(root)
     if tool == "Bash":
         cmd = inp.get("command", "")
         if role == "test-author":
             reads = re.search(r"\b(grep|rg|ag|cat|less|more|head|tail|sed|awk|find|tree|bat|nl)\b", code_only(cmd))
             for tok in re.findall(r"[\w./-]+", cmd):
                 r = rel_path(tok, root).rstrip("/")
-                if PROD_CODE.search(r) or (reads and r in ("backend", "backend/src", "backend/src/main", "backend/src/main/java",
-                                                           "frontend", "frontend/src", ".")):
+                if sc.prod_code(r) or (reads and r in sc.roots):
                     block(f"test-author viết test hộp đen — không đọc code production ({tok}). Dùng docs/api/openapi.yaml, "
                           "migration và test có sẵn.", "agent_blind")
         if role in ("reviewer", "doc-sync") and REPO_CHANGING_GIT.search(code_only(cmd)):
@@ -312,7 +411,7 @@ def check_agent(role: str, tool: str, inp: dict, root: Path) -> None:
             if r.startswith(("/tmp/", "/dev/")):
                 continue
             ok = {"reviewer": r.startswith(".dk/reviews/"), "doc-sync": bool(DOC_WRITE_OK.match(r)),
-                  "test-author": bool(TEST_WRITE_OK.match(r))}[role]
+                  "test-author": sc.test_write_ok(r)}[role]
             if not ok:
                 block(f"{role} không được ghi {r} (chỉ ghi: "
                       f"{ {'reviewer': '.dk/reviews/', 'doc-sync': 'docs/, README, deploy/.env.example', 'test-author': 'file test'}[role]}).",
@@ -324,11 +423,11 @@ def check_agent(role: str, tool: str, inp: dict, root: Path) -> None:
         if tool == "Grep" and (not r or r in (".", "")):
             block("test-author: Grep phải có `path` trong vùng được đọc (docs/, backend/src/test/, "
                   "backend/src/main/resources/, file test frontend) — không quét cả repo gồm code production.", "agent_blind")
-        if tool in ("Read", "Grep") and r and not TEST_READ_OK.match(r) and PROD_CODE.search(r + ("/" if tool == "Grep" else "")):
+        if tool in ("Read", "Grep") and r and not sc.test_read_ok(r) and sc.prod_code(r, is_dir=tool == "Grep"):
             block(f"test-author viết test hộp đen — không đọc code production ({r}).", "agent_blind")
-        if tool == "Grep" and r and r.rstrip("/") in ("backend/src/main/java", "frontend/src", "backend/src", "backend", "frontend"):
+        if tool == "Grep" and r and sc.grep_too_wide(r):
             block(f"test-author: Grep trong {r} chạm code production — thu hẹp `path`.", "agent_blind")
-        if tool in ("Edit", "Write", "MultiEdit", "NotebookEdit") and not TEST_WRITE_OK.match(r):
+        if tool in ("Edit", "Write", "MultiEdit", "NotebookEdit") and not sc.test_write_ok(r):
             block(f"test-author chỉ ghi file test, không ghi {r}.", "agent_scope")
     elif role == "doc-sync" and tool in ("Edit", "Write", "MultiEdit", "NotebookEdit") and not DOC_WRITE_OK.match(r):
         block(f"doc-sync chỉ sửa tài liệu, không sửa {r}.", "agent_scope")

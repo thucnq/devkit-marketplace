@@ -9,6 +9,8 @@ Usage: dk-evidence.py red <feature>      after test-author: run the feature's te
 Reads Surefire XML (backend/target/surefire-reports/TEST-*.xml) and maps test cases to AC ids through the
 test name or the @DisplayName("AC-…") above the test method. Writes .dk/evidence/<feature>.json (commit it).
 A test that already PASSES at RED did not prove anything: it is flagged so the reviewer looks at it.
+With .dk/stack.toml (dk 0.7.0) it reads the JUnit XML of every component instead (pytest --junitxml, vitest
+junit reporter, Surefire — all the same format); Python test names may carry the AC in snake case.
 """
 import json
 import re
@@ -18,7 +20,9 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
 
-AC_RE = re.compile(r"AC-[A-Z0-9]+-[A-Z0-9]+")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from dk_stack import StackError, ac_ids, load as load_stack  # noqa: E402
+
 AC_HEAD = re.compile(r"^###\s+(AC-[A-Z0-9]+-[A-Z0-9]+)")
 DISPLAY = re.compile(r'@DisplayName\(\s*"(AC-[A-Z0-9]+-[A-Z0-9]+)[^"]*"\s*\)[\s\S]{0,400}?\bvoid\s+(\w+)\s*\(')
 REPORTS = ["backend/target/surefire-reports", "target/surefire-reports"]
@@ -38,7 +42,7 @@ def feature_acs(feature):
             acs[cur]["optional"] = True
     # tenant/validation tests the test-author adds on top of the written ACs
     prefix = next(iter(acs), "AC-X-01").rsplit("-", 1)[0]
-    for extra in ("TENANT", "VALIDATION"):
+    for extra in ("TENANT", "VALIDATION", "ABUSE"):
         acs.setdefault(f"{prefix}-{extra}", {"optional": True, "implicit": True})
     return acs
 
@@ -55,13 +59,34 @@ def method_map():
     return out
 
 
+PROFILE = {"on": False}
+
+
+def report_files():
+    try:
+        stack = load_stack()
+    except StackError as e:
+        sys.exit(f"dk-evidence: {e}")
+    if stack is None:
+        files = [x for d in REPORTS for x in Path(d).glob("TEST-*.xml")]
+        if not files:
+            sys.exit("dk-evidence: chưa có báo cáo Surefire — chạy test của tính năng trước "
+                     "(./mvnw -q -pl backend test -Dtest='*<Feature>*'), kể cả khi đang đỏ")
+        return files
+    PROFILE["on"] = True
+    files = [Path(c.junit) for c in stack.components if Path(c.junit).is_file()]
+    files += [x for c in stack.components if c.kind == "java-maven"
+              for x in (Path(c.root) / "target" / "surefire-reports").glob("TEST-*.xml")]
+    if not files:
+        sys.exit("dk-evidence: chưa có báo cáo JUnit (.dk/junit/*.xml) — chạy lệnh test của tính năng trước "
+                 "(python3 <plugin>/scripts/dk_stack.py test-cmd <feature>), kể cả khi đang đỏ")
+    return files
+
+
 def run_results():
     mm = method_map()
     res = {}
-    files = [x for d in REPORTS for x in Path(d).glob("TEST-*.xml")]
-    if not files:
-        sys.exit("dk-evidence: chưa có báo cáo Surefire — chạy test của tính năng trước "
-                 "(./mvnw -q -pl backend test -Dtest='*<Feature>*'), kể cả khi đang đỏ")
+    files = report_files()
     newest = max(f.stat().st_mtime for f in files)
     # only the latest test run: reports older than 10 minutes before the newest one are leftovers
     files = [f for f in files if f.stat().st_mtime >= newest - 600]
@@ -72,8 +97,8 @@ def run_results():
             continue
         for tc in root.iter("testcase"):
             name, cls = tc.get("name", ""), tc.get("classname", "").rsplit(".", 1)[-1]
-            m = AC_RE.search(name)
-            ac = m.group(0) if m else mm.get((cls, name.split("(")[0]))
+            found = ac_ids(name, python=PROFILE["on"])
+            ac = found[0] if found else mm.get((cls, name.split("(")[0]))
             if not ac:
                 continue
             status = ("FAIL" if tc.find("failure") is not None or tc.find("error") is not None
