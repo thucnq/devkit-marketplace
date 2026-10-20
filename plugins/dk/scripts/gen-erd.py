@@ -1,21 +1,47 @@
 #!/usr/bin/env python3
-"""Generate docs/db/erd.md (Mermaid erDiagram) from Flyway migrations. Deterministic, no DB needed.
+"""Generate docs/db/erd.md (Mermaid erDiagram) from SQL migrations. Deterministic, no DB needed.
 
+Migrations: Flyway `V<n>__*.sql` or sequential `NNNN_*.sql` (wrangler-seq, Cloudflare D1). Without a
+migrations_dir it uses the first `migration.dir` of `.dk/stack.toml`, else the Flyway default.
 Handles: CREATE TABLE (incl. IF NOT EXISTS, schema-qualified), inline/table-level REFERENCES,
 ALTER TABLE ADD COLUMN / DROP COLUMN / ADD CONSTRAINT FOREIGN KEY, DROP TABLE, RENAME. Skips partitions.
-Usage: gen-erd.py [migrations_dir] [out_file]
+No migration file found ⇒ exit 1 and out_file is left untouched.
+
+--check: write nothing; exit 1 if out_file's diagram misses a table/column of the migrations or lists
+a table they do not have. For hand-drawn ERDs (wrangler-seq: D1 has few FKs, relations are drawn by hand).
+Usage: gen-erd.py [--check] [migrations_dir] [out_file]
 """
 import re
+import subprocess
 import sys
 from pathlib import Path
 
-MIG = Path(sys.argv[1] if len(sys.argv) > 1 else "backend/src/main/resources/db/migration")
-OUT = Path(sys.argv[2] if len(sys.argv) > 2 else "docs/db/erd.md")
+ARGS = [a for a in sys.argv[1:] if a != "--check"]
+CHECK = "--check" in sys.argv[1:]
+FLYWAY_DEFAULT = "backend/src/main/resources/db/migration"
+
+
+def stack_migration_dir():
+    try:
+        out = subprocess.run([sys.executable, str(Path(__file__).resolve().parent / "dk_stack.py"), "migrations"],
+                             capture_output=True, text=True, timeout=30).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    line = next((ln for ln in out.splitlines() if "\t" in ln), None)
+    return line.split("\t", 1)[1] if line else None
+
+
+MIG = Path(ARGS[0] if ARGS else (stack_migration_dir() or FLYWAY_DEFAULT))
+OUT = Path(ARGS[1] if len(ARGS) > 1 else "docs/db/erd.md")
 
 
 def version_key(p: Path):
-    m = re.match(r"V(\d+(?:[._]\d+)*)__", p.name)
+    m = re.match(r"V(\d+(?:[._]\d+)*)__", p.name) or re.match(r"(\d+)_", p.name)
     return [int(x) for x in re.split(r"[._]", m.group(1))] if m else [10**9]
+
+
+def migration_files():
+    return sorted({*MIG.glob("V*__*.sql"), *MIG.glob("[0-9]*_*.sql")}, key=version_key)
 
 
 def strip_comments(sql: str) -> str:
@@ -47,7 +73,13 @@ tables: dict[str, dict] = {}
 rels: set[tuple[str, str, str]] = set()
 KEYWORDS = ("constraint", "primary", "foreign", "unique", "check", "exclude", "like")
 
-for f in sorted(MIG.glob("V*__*.sql"), key=version_key):
+FILES = migration_files()
+if not FILES:
+    print(f"gen-erd: không thấy migration nào trong {MIG} (V<n>__*.sql hoặc NNNN_*.sql) — {OUT} giữ nguyên",
+          file=sys.stderr)
+    sys.exit(1)
+
+for f in FILES:
     sql = strip_comments(f.read_text(encoding="utf-8"))
     for stmt in sql.split(";"):
         s = " ".join(stmt.split())
@@ -103,8 +135,32 @@ for f in sorted(MIG.glob("V*__*.sql"), key=version_key):
             for t in m.group(1).split(","):
                 tables.pop(name(t), None)
 
+if CHECK:
+    if not OUT.is_file():
+        print(f"gen-erd --check: thiếu {OUT}", file=sys.stderr)
+        sys.exit(1)
+    drawn: dict[str, set] = {}
+    cur = None
+    for raw in OUT.read_text(encoding="utf-8").splitlines():
+        ln = raw.strip()
+        m = re.match(r"([\w.\"]+)\s*\{$", ln)
+        if m:
+            cur = drawn.setdefault(name(m.group(1)), set())
+        elif ln == "}":
+            cur = None
+        elif cur is not None and len(ln.split()) >= 2:
+            cur.add(ln.split()[1].strip('"'))
+    drift = [f"thiếu bảng `{t}`" for t in sorted(tables) if t not in drawn]
+    drift += [f"`{t}` thiếu cột `{c}`" for t in sorted(tables) if t in drawn
+              for c in tables[t]["cols"] if c not in drawn[t]]
+    drift += [f"bảng `{t}` không có trong migrations" for t in sorted(drawn) if t not in tables]
+    for d in drift:
+        print(f"gen-erd --check: {OUT}: {d}")
+    print(f"gen-erd --check: {len(tables)} tables, {len(drift)} drift")
+    sys.exit(1 if drift else 0)
+
 lines = ["# Sơ đồ cơ sở dữ liệu", "",
-         "> Sinh tự động từ Flyway migrations bằng `gen-erd.sh` — không sửa tay.", "",
+         "> Sinh tự động từ SQL migrations bằng `gen-erd.sh` — không sửa tay.", "",
          "```mermaid", "erDiagram"]
 for t in sorted(tables):
     lines.append(f"    {t} {{")
