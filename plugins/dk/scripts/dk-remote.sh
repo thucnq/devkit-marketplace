@@ -31,10 +31,10 @@ case "${1:-start}" in
       claude remote-control --name "$slug" ${DK_REMOTE_FLAGS:-} $extra || true
       [ -f "$STOP" ] && break
       echo "$(( $(cat "$RESTARTS" 2>/dev/null || echo 0) + 1 ))" > "$RESTARTS"
-      echo "$(date '+%F %T') Claude Code thoát (mất mạng?) — chạy lại sau 30 giây. Dừng hẳn: dk-remote stop"
+      echo "$(date '+%F %T') Claude Code thoát (mất mạng?) - chạy lại sau 30 giây. Dừng hẳn: dk-remote stop"
       sleep 30; extra="--continue"
     done
-    echo "Đã dừng — Enter để đóng"; read -r _ ;;
+    echo "Đã dừng - Enter để đóng"; read -r _ ;;
   stop)
     touch "$STOP"
     tmux send-keys -t "$NAME" C-c 2>/dev/null || true; sleep 2

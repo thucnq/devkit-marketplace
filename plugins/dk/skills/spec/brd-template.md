@@ -1,4 +1,4 @@
-# BRD — <Tên dự án>
+# BRD - <Tên dự án>
 
 > Phiên bản: <x.y> · Ngày: <yyyy-mm-dd> · Trạng thái: Nháp | Đã chốt
 

@@ -1,6 +1,6 @@
 ---
 name: cf-worker-conventions
-description: Conventions for Cloudflare Worker (TypeScript) + D1 + static web assets in a dk stack profile — routing, errors, D1 access, rate limiting, secrets, environments, frontend. Reference for /dk:design, /dk:build and /dk:review.
+description: Conventions for Cloudflare Worker (TypeScript) + D1 + static web assets in a dk stack profile - routing, errors, D1 access, rate limiting, secrets, environments, frontend. Reference for /dk:design, /dk:build and /dk:review.
 user-invocable: false
 ---
 
@@ -11,7 +11,7 @@ user-invocable: false
 - Routes in a small table (`src/index.ts`) or Hono if the project grows past ~15 routes (ADR). One module per feature under `src/features/<feature>/`.
 - Errors are RFC 9457 `application/problem+json` via `problem()` (`src/http.ts`); never leak stack traces or SQL. Unknown `/api/*` → 404 problem.
 - Validate every input (size, type, allowed values) before touching D1; reject unknown fields on writes.
-- Write endpoints are rate limited (Workers rate limiting binding or a D1/KV counter keyed by a salted hash of IP + anonymous id — never store raw IPs longer than needed). Each gets an `AC-<FEAT>-ABUSE` test.
+- Write endpoints are rate limited (Workers rate limiting binding or a D1/KV counter keyed by a salted hash of IP + anonymous id - never store raw IPs longer than needed). Each gets an `AC-<FEAT>-ABUSE` test.
 - Secrets (`ADMIN_TOKEN`, API keys) only from `env` (wrangler secrets); compare tokens in constant time; admin routes under `/api/admin/*` require it.
 
 ## D1 (SQLite)

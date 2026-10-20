@@ -1,11 +1,11 @@
-# Runbook vận hành — goldenpath
+# Runbook vận hành - goldenpath
 
 ## Cấu hình
 Mọi biến môi trường được liệt kê trong `deploy/.env.example`. File thật nằm ở `deploy/envs/<môi-trường>.env` (không commit) và được chép thành `.env` trên máy chủ.
 
 | Biến | Ý nghĩa |
 |---|---|
-| `DB_OWNER_*` | Tài khoản owner của database — chỉ Flyway dùng |
+| `DB_OWNER_*` | Tài khoản owner của database - chỉ Flyway dùng |
 | `DB_APP_PASSWORD` | Mật khẩu role `app_rw` mà ứng dụng dùng (chịu RLS) |
 | `APP_JWT_SECRET` | Khóa ký JWT (`openssl rand -base64 48`). Đổi khóa = mọi người phải đăng nhập lại |
 | `APP_PII_KEY`, `APP_PII_HASH_KEY` | Khóa mã hóa dữ liệu cá nhân (`openssl rand -base64 32`). **Mất khóa = mất dữ liệu đã mã hóa.** Lưu bản sao ở nơi an toàn ngoài máy chủ |
@@ -32,7 +32,7 @@ Mỗi dự án dùng một PostgreSQL riêng (role `app_rw` là role cấp clust
 | Đăng nhập Google báo lỗi | Redirect URI chưa khai báo `https://<domain>/login/oauth2/code/google` | Cập nhật trong Google Cloud Console |
 
 ## Xoay khóa
-- JWT: đổi `APP_JWT_SECRET`, khởi động lại — mọi phiên hết hiệu lực.
+- JWT: đổi `APP_JWT_SECRET`, khởi động lại - mọi phiên hết hiệu lực.
 - PII: chưa hỗ trợ xoay tự động (định dạng bản mã có byte phiên bản để bổ sung sau). Lập ADR trước khi xoay.
 
 ## Sự cố dữ liệu cá nhân

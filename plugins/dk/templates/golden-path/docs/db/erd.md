@@ -1,6 +1,6 @@
 # Sơ đồ cơ sở dữ liệu
 
-> Sinh tự động từ Flyway migrations bằng `gen-erd.sh` — không sửa tay.
+> Sinh tự động từ Flyway migrations bằng `gen-erd.sh` - không sửa tay.
 
 ```mermaid
 erDiagram

@@ -10,7 +10,7 @@ Reads Surefire XML (backend/target/surefire-reports/TEST-*.xml) and maps test ca
 test name or the @DisplayName("AC-…") above the test method. Writes .dk/evidence/<feature>.json (commit it).
 A test that already PASSES at RED did not prove anything: it is flagged so the reviewer looks at it.
 With .dk/stack.toml (dk 0.7.0) it reads the JUnit XML of every component instead (pytest --junitxml, vitest
-junit reporter, Surefire — all the same format); Python test names may carry the AC in snake case.
+junit reporter, Surefire - all the same format); Python test names may carry the AC in snake case.
 """
 import json
 import re
@@ -70,7 +70,7 @@ def report_files():
     if stack is None:
         files = [x for d in REPORTS for x in Path(d).glob("TEST-*.xml")]
         if not files:
-            sys.exit("dk-evidence: chưa có báo cáo Surefire — chạy test của tính năng trước "
+            sys.exit("dk-evidence: chưa có báo cáo Surefire - chạy test của tính năng trước "
                      "(./mvnw -q -pl backend test -Dtest='*<Feature>*'), kể cả khi đang đỏ")
         return files
     PROFILE["on"] = True
@@ -78,7 +78,7 @@ def report_files():
     files += [x for c in stack.components if c.kind == "java-maven"
               for x in (Path(c.root) / "target" / "surefire-reports").glob("TEST-*.xml")]
     if not files:
-        sys.exit("dk-evidence: chưa có báo cáo JUnit (.dk/junit/*.xml) — chạy lệnh test của tính năng trước "
+        sys.exit("dk-evidence: chưa có báo cáo JUnit (.dk/junit/*.xml) - chạy lệnh test của tính năng trước "
                  "(python3 <plugin>/scripts/dk_stack.py test-cmd <feature>), kể cả khi đang đỏ")
     return files
 
@@ -147,7 +147,7 @@ def main():
             print(f"dk-evidence RED {feature}: {len(red)} AC đỏ đúng kỳ vọng · {len(early)} AC đã xanh trước khi code"
                   f" · {len(none)} AC bắt buộc chưa có test chạy")
             for a in early:
-                print(f"  ⚠ {a} PASS trước khi implement ({r[a]['test']}) — test có thể không kiểm gì; xem lại assert")
+                print(f"  ⚠ {a} PASS trước khi implement ({r[a]['test']}) - test có thể không kiểm gì; xem lại assert")
             for a in none:
                 print(f"  ✗ {a} chưa có test chạy")
             return 1 if none else 0
@@ -155,13 +155,13 @@ def main():
         print(f"dk-evidence GREEN {feature}: {sum(1 for a in r if r[a]['status'] == 'PASS')}/{len(r)} AC xanh"
               + (f" · chưa xanh: {', '.join(notgreen)}" if notgreen else ""))
         if "red" not in data:
-            print("  ⚠ không có bản ghi RED — không chứng minh được test được viết trước code")
+            print("  ⚠ không có bản ghi RED - không chứng minh được test được viết trước code")
         return 1 if notgreen else 0
 
     red, green = data.get("red", {}).get("results", {}), data.get("green", {}).get("results", {})
-    print(f"### Bằng chứng RED → GREEN — {feature}\n")
-    print(f"RED: {data.get('red', {}).get('ts', '—')} @ {data.get('red', {}).get('commit', '—')} · "
-          f"GREEN: {data.get('green', {}).get('ts', '—')} @ {data.get('green', {}).get('commit', '—')}\n")
+    print(f"### Bằng chứng RED → GREEN - {feature}\n")
+    print(f"RED: {data.get('red', {}).get('ts', '-')} @ {data.get('red', {}).get('commit', '-')} · "
+          f"GREEN: {data.get('green', {}).get('ts', '-')} @ {data.get('green', {}).get('commit', '-')}\n")
     print("| AC | RED | GREEN | Test |\n|---|---|---|---|")
     icon = {"FAIL": "🔴", "PASS": "🟢", "SKIP": "⏭"}
     for a, v in acs.items():
@@ -169,7 +169,7 @@ def main():
             continue
         r, g = red.get(a, {}), green.get(a, {})
         flag = " ⚠ xanh trước khi code" if r.get("status") == "PASS" else ""
-        print(f"| {a} | {icon.get(r.get('status'), '—')}{flag} | {icon.get(g.get('status'), '—')} | {g.get('test') or r.get('test') or '❌'} |")
+        print(f"| {a} | {icon.get(r.get('status'), '-')}{flag} | {icon.get(g.get('status'), '-')} | {g.get('test') or r.get('test') or '❌'} |")
     return 0
 
 

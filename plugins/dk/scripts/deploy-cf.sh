@@ -6,7 +6,7 @@
 #   --rollback  roll the Worker code back to <version-id> or to the good release before the current one.
 #               D1 data is NOT rolled back (that is a human decision: D1 Time Travel, see docs/runbook.md)
 #   --releases  print .dk/releases/<env>.log        --url  print the last known URL of <env>
-# Production is human-only: <env> must be in deploy.nonprod_envs (and never prod*) — the guard hook blocks it too.
+# Production is human-only: <env> must be in deploy.nonprod_envs (and never prod*) - the guard hook blocks it too.
 set -euo pipefail
 ENV_NAME="${1:?usage: deploy-cf.sh <env> [--rollback [version-id] | --releases | --url]}"
 ACTION="${2:-deploy}"
@@ -16,7 +16,7 @@ case "$ENV_NAME" in prod*|"") echo "⛔ production chỉ do người triển kha
 
 cfg="$(python3 "$HERE/dk_stack.py" deploy)" || { echo "deploy-cf: .dk/stack.toml không có thành phần deploy (kind cloudflare)"; exit 1; }
 get() { echo "$cfg" | sed -n "s/^$1=//p" | head -1; }
-[ "$(get kind)" = cloudflare ] || { echo "deploy-cf: deploy.kind = $(get kind), không phải cloudflare — dùng deploy.sh"; exit 1; }
+[ "$(get kind)" = cloudflare ] || { echo "deploy-cf: deploy.kind = $(get kind), không phải cloudflare - dùng deploy.sh"; exit 1; }
 ROOT="$(get root)"; HEALTH="$(get health)"; HEALTH="${HEALTH:-/api/health}"
 BINDING="$(get d1_binding)"; BUILD="$(get build)"; NONPROD=" $(get nonprod_envs) "
 [[ "$NONPROD" == *" $ENV_NAME "* ]] || { echo "⛔ env '$ENV_NAME' không nằm trong deploy.nonprod_envs ($NONPROD) của .dk/stack.toml"; exit 2; }
@@ -48,16 +48,16 @@ case "$ACTION" in
     target="${3:-}"
     if [ -z "$target" ]; then
       target="$(good_versions | tail -2 | head -1)"
-      [ -n "$target" ] && [ "$(good_versions | wc -l)" -ge 2 ] || { echo "deploy-cf: không có bản tốt trước đó trong $LOG — truyền version-id (npx wrangler versions list --env $ENV_NAME)"; exit 1; }
+      [ -n "$target" ] && [ "$(good_versions | wc -l)" -ge 2 ] || { echo "deploy-cf: không có bản tốt trước đó trong $LOG - truyền version-id (npx wrangler versions list --env $ENV_NAME)"; exit 1; }
     fi
     rollback_to "$target" "manual rollback"
-    url="$(last_url)"; [ -z "$url" ] || health "$url" || { echo "✗ health sau rollback vẫn lỗi — báo người"; exit 1; }
+    url="$(last_url)"; [ -z "$url" ] || health "$url" || { echo "✗ health sau rollback vẫn lỗi - báo người"; exit 1; }
     echo "✓ đã quay lại $target"; exit 0 ;;
   deploy) ;;
   *) echo "deploy-cf: thao tác $ACTION không hỗ trợ"; exit 2 ;;
 esac
 
-[ -z "$(git status --porcelain --untracked-files=no -- . ':!.dk/releases' ':!.dk/log')" ] || { echo "⛔ cây làm việc có thay đổi chưa commit — commit trước để biết chính xác bản nào được triển khai"; exit 1; }
+[ -z "$(git status --porcelain --untracked-files=no -- . ':!.dk/releases' ':!.dk/log')" ] || { echo "⛔ cây làm việc có thay đổi chưa commit - commit trước để biết chính xác bản nào được triển khai"; exit 1; }
 if [ -n "$BUILD" ]; then echo "▶ build: $BUILD"; bash -c "$BUILD"; fi
 if [ -n "$BINDING" ]; then echo "▶ D1 migrations ($ENV_NAME, expand-only)"; wr d1 migrations apply "$BINDING" --env "$ENV_NAME" --remote; fi
 echo "▶ wrangler deploy --env $ENV_NAME"

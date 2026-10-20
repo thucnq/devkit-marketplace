@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Tiny key: value store in .dk/state.md — the only writer of that file.
+# Tiny key: value store in .dk/state.md - the only writer of that file.
 # Usage: dk-state.sh get <key> | set <key> <value> | approve <gate> | require <gate> | show
 set -euo pipefail
 F=".dk/state.md"
 EV="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/dk_event.py"
 log() { python3 "$EV" "$@" >/dev/null 2>&1 || true; }
 mkdir -p .dk
-[ -f "$F" ] || printf '# dk state (managed by dk-state.sh — do not edit)\nphase: new\n' > "$F"
+[ -f "$F" ] || printf '# dk state (managed by dk-state.sh - do not edit)\nphase: new\n' > "$F"
 
 get() { grep -E "^$1:" "$F" | head -1 | sed -E "s/^$1:[[:space:]]*//" || true; }
 set_kv() {
@@ -27,7 +27,7 @@ case "${1:-show}" in
     # a re-drafted upstream artefact invalidates downstream approvals
     if [ "$k" = spec ] && [[ "$*" != approved* ]]; then
       set_kv phase spec
-      [[ "$(get contract)" == approved* ]] && set_kv contract "stale (spec changed $(date +%F))" && echo "contract: stale — cần /dk:design và duyệt lại"
+      [[ "$(get contract)" == approved* ]] && set_kv contract "stale (spec changed $(date +%F))" && echo "contract: stale - cần /dk:design và duyệt lại"
     fi
     if [ "$k" = contract ] && [[ "$*" != approved* ]]; then set_kv phase design; fi
     ;;
@@ -37,7 +37,7 @@ case "${1:-show}" in
     who="$(git config user.name 2>/dev/null || whoami)"
     rev="$(git rev-parse --short HEAD 2>/dev/null || echo none)"
     if [ -n "$(git status --porcelain docs 2>/dev/null)" ]; then
-      echo "⛔ docs/ có thay đổi chưa commit — commit trước khi duyệt để biết chính xác đã duyệt phiên bản nào."; exit 0
+      echo "⛔ docs/ có thay đổi chưa commit - commit trước khi duyệt để biết chính xác đã duyệt phiên bản nào."; exit 0
     fi
     set_kv "$gate" "approved $(date +%F) by $who at $rev"
     [ "$gate" = spec ] && set_kv phase design
@@ -52,7 +52,7 @@ case "${1:-show}" in
       rev="${v##* at }"
       if [ "$rev" != none ] && git rev-parse -q --verify "$rev" >/dev/null 2>&1; then
         changed="$(git diff --name-only "$rev" HEAD -- docs/brd.md docs/acceptance docs/api 2>/dev/null | head -5)"
-        if [ -n "$changed" ]; then echo "⚠️ Spec/contract đã đổi sau khi duyệt: $changed — báo người dùng cân nhắc duyệt lại."; fi
+        if [ -n "$changed" ]; then echo "⚠️ Spec/contract đã đổi sau khi duyệt: $changed - báo người dùng cân nhắc duyệt lại."; fi
       fi
     else
       log gate_blocked gate="$gate"

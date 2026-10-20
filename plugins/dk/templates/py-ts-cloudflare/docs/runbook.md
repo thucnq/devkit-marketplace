@@ -1,4 +1,4 @@
-# Runbook vận hành — goldenpath
+# Runbook vận hành - goldenpath
 
 ## Bí mật
 Không bí mật nào nằm trong repo (repo có thể public).
@@ -17,7 +17,7 @@ Không bí mật nào nằm trong repo (repo có thể public).
 ## Triển khai và quay lại
 - Staging: `/dk:ship staging` (build web, migrate D1, deploy, kiểm tra `/api/health`, tự rollback khi lỗi).
 - Quay lại bản trước (chỉ code): `bash <plugin>/scripts/deploy-cf.sh staging --rollback [version-id]`; production: `npx wrangler rollback [version-id]`.
-- Rollback **không** quay lại dữ liệu D1. Khôi phục dữ liệu bằng D1 Time Travel — việc của người, kiểm tra cú pháp hiện hành của `wrangler d1 time-travel` trước khi chạy.
+- Rollback **không** quay lại dữ liệu D1. Khôi phục dữ liệu bằng D1 Time Travel - việc của người, kiểm tra cú pháp hiện hành của `wrangler d1 time-travel` trước khi chạy.
 
 ## Vận hành
 - Log thời gian thực: `npx wrangler tail --env staging` (production: bỏ `--env`).

@@ -13,11 +13,11 @@
 | 6 | Test cách ly **fail-closed**: liệt kê mọi endpoint, endpoint mới chưa phân loại → đỏ | **Lấy** dạng hướng dẫn (chưa có code mẫu vì backend golden path chưa build được trong sandbox) | `security-baseline`, `test-author` |
 | 7 | Mỗi hạng mục có **mức rủi ro** HIGH/MEDIUM/LOW quyết định độ kỹ của review | **Lấy**: `risk` trong `items.json` → Gantt và `/dk:review` | `items.schema.md`, `/dk:plan`, `review` |
 | 8 | `BOARD.md` sinh tự động: trạng thái, số vòng test/review, phụ thuộc | **Lấy ý tưởng, đổi hình thức**: Gantt + checklist `docs/plan/` sinh từ báo giá, người tick tiến độ | `/dk:plan`, `gen-plan.py` |
-| 9 | "Không đoán nghiệp vụ kế toán — ghi câu hỏi và dừng" | **Lấy** vào CLAUDE.md golden path | golden `CLAUDE.md` |
+| 9 | "Không đoán nghiệp vụ kế toán - ghi câu hỏi và dừng" | **Lấy** vào CLAUDE.md golden path | golden `CLAUDE.md` |
 | 10 | Giới hạn vòng lặp (tester trả về tối đa 3, reviewer 2 → BLOCKED) | **Đã có** trong dk (`build` 6 vòng, `review` 3 vòng fix + 2 lần reviewer) | – |
 | 11 | Phân quyền ghi file theo vai trò + commit identity riêng từng agent + CI `Guard` kiểm theo tác giả commit | **Chưa lấy**: dk chỉ có 3 agent và người merge; `guard.py` + cổng duyệt đã đủ. Xem lại nếu bật chế độ chạy tự động dài | backlog |
 | 12 | Worktree riêng cho mỗi hạng mục (`.worktrees/NNN`), thư mục gốc luôn ở `main` | **Chưa lấy**: đội 3 người mỗi người một máy/nhánh. Hữu ích khi một máy chạy nhiều agent song song | backlog |
-| 13 | Pipeline 4 agent tự chạy hết hàng đợi (`/pipeline`) | **Không lấy**: ngược nguyên tắc tiết kiệm token của dk (mỗi agent dựng lại context; planner + reviewer dùng opus). hopnhat cho thấy rủi ro: 11/25 hạng mục dồn ở HELD, 1 BLOCKED vì thiếu dữ liệu mẫu — cổng người duyệt mới là nút thắt, không phải tốc độ code | – |
+| 13 | Pipeline 4 agent tự chạy hết hàng đợi (`/pipeline`) | **Không lấy**: ngược nguyên tắc tiết kiệm token của dk (mỗi agent dựng lại context; planner + reviewer dùng opus). hopnhat cho thấy rủi ro: 11/25 hạng mục dồn ở HELD, 1 BLOCKED vì thiếu dữ liệu mẫu - cổng người duyệt mới là nút thắt, không phải tốc độ code | – |
 | 14 | Observability đầy đủ (OTel collector, Prometheus, Grafana 3 dashboard, Alertmanager, Splunk) | **Chưa lấy**: vượt hạ tầng $0 của khách nhỏ. Có thể thêm profile `observability` tùy chọn cho golden path | backlog |
 | 15 | `rollback.sh` + workflow `promote`/`rollback` theo image tag | **Nên lấy sau**: `/dk:ship` hiện chưa có rollback một lệnh | backlog (ưu tiên cao) |
 | 16 | Thông báo Telegram khi BLOCKED/xong | **Không lấy**: app Claude đã có push notification cho Remote Control (`/config` → Push when actions required) | – |
@@ -25,6 +25,6 @@
 
 ## Backlog đề xuất (theo thứ tự)
 1. `/dk:ship rollback` + `deploy/rollback.sh` theo image tag (hopnhat #15).
-2. Mã mẫu test endpoint catalog fail-closed trong golden path — viết khi CI golden path build được backend (hopnhat #6).
+2. Mã mẫu test endpoint catalog fail-closed trong golden path - viết khi CI golden path build được backend (hopnhat #6).
 3. Generator dữ liệu vàng mẫu (Python, seed cố định) trong golden path cho dự án có import Excel (hopnhat #5).
 4. Chế độ worktree cho một máy chạy nhiều phiên song song (hopnhat #12).

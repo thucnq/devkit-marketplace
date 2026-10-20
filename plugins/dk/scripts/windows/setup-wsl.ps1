@@ -3,7 +3,7 @@
   Mở PowerShell bằng "Run as Administrator":
     Set-ExecutionPolicy -Scope Process Bypass
     .\setup-wsl.ps1                                   # Bước 1: cài WSL2 + Ubuntu (hỏi chọn ổ đĩa), ghi .wslconfig
-    .\setup-wsl.ps1 -Drive D                          # Cài Ubuntu vào D:\wsl\Ubuntu-24.04 — hoặc CHUYỂN Ubuntu đang có sang ổ D
+    .\setup-wsl.ps1 -Drive D                          # Cài Ubuntu vào D:\wsl\Ubuntu-24.04 - hoặc CHUYỂN Ubuntu đang có sang ổ D
     .\setup-wsl.ps1 -InstallDir E:\linux              # Như trên, tự chọn thư mục
     .\setup-wsl.ps1 -Status                           # Ubuntu đang nằm ở đâu, nặng bao nhiêu, các ổ còn trống bao nhiêu
     .\setup-wsl.ps1 -Configure -RepoPath "~/qldn"     # Bước 3: không ngủ khi cắm điện + tự chạy Remote Control khi đăng nhập
@@ -12,7 +12,7 @@
   Thêm -Yes để không hỏi xác nhận. -MoveTo D:\wsl vẫn dùng được (giống -InstallDir).
   Bước 2 (trong Ubuntu) xem docs/dev/wsl-intellij.md của dự án.
 
-  Đặt Ubuntu ở ổ khác C: cả đĩa ảo (ext4.vhdx, chứa repo, Docker image, Maven/npm cache — thường 20–60 GB)
+  Đặt Ubuntu ở ổ khác C: cả đĩa ảo (ext4.vhdx, chứa repo, Docker image, Maven/npm cache - thường 20–60 GB)
   lẫn file swap của WSL đều nằm ở ổ đã chọn. Ổ C đầy là nguyên nhân hay gặp nhất làm hỏng đĩa ảo
   ("Bus error", Wsl/Service/CreateInstance/E_FAIL).
 #>
@@ -97,7 +97,7 @@ function Resolve-TargetDir {
   $letter = $dir.Substring(0, 1).ToUpper()
   $vol = Get-Volume -DriveLetter $letter -ErrorAction SilentlyContinue
   if (-not $vol) { throw "Không thấy ổ ${letter}:. Kiểm tra lại tên ổ (Get-Volume)." }
-  if ($vol.FileSystem -notin @('NTFS', 'ReFS')) { throw "Ổ ${letter}: là $($vol.FileSystem) — WSL cần NTFS hoặc ReFS (FAT32/exFAT không chứa được đĩa ảo)." }
+  if ($vol.FileSystem -notin @('NTFS', 'ReFS')) { throw "Ổ ${letter}: là $($vol.FileSystem) - WSL cần NTFS hoặc ReFS (FAT32/exFAT không chứa được đĩa ảo)." }
   if ($vol.DriveType -ne 'Fixed') {
     Write-Host "⚠ Ổ ${letter}: là ổ $($vol.DriveType) (USB/ổ rời). Rút ổ khi WSL đang chạy sẽ hỏng đĩa ảo."
     if (-not (Confirm-Step "Vẫn dùng ổ ${letter}:?")) { exit 1 }
@@ -124,13 +124,13 @@ function Select-TargetDirInteractive {
 }
 
 function Set-SwapLocation([string]$targetDir) {
-  # File swap của WSL mặc định nằm ở %TEMP% trên ổ C — đưa sang cùng ổ với đĩa ảo.
+  # File swap của WSL mặc định nằm ở %TEMP% trên ổ C - đưa sang cùng ổ với đĩa ảo.
   $cfg = Join-Path $env:USERPROFILE ".wslconfig"
   $swap = ($targetDir.TrimEnd('\') + '\swap.vhdx') -replace '\\', '\\'
   if (-not (Test-Path $cfg)) { return }
   $text = Get-Content $cfg -Raw
   if ($text -match '(?m)^\s*swapFile\s*=') {
-    Write-Host "  .wslconfig đã có swapFile — giữ nguyên (đổi tay nếu nó đang ở ổ C)."
+    Write-Host "  .wslconfig đã có swapFile - giữ nguyên (đổi tay nếu nó đang ở ổ C)."
     return
   }
   if ($text -match '(?m)^[ \t]*\[wsl2\][ \t]*\r?$') {
@@ -155,7 +155,7 @@ function Move-Distro($info, [string]$targetDir) {
   Write-Host "== Chuyển ${Distro}: $($info.BasePath) ($(Format-GB $info.SizeBytes)) → $dest (ổ ${letter}: trống $(Format-GB $free)) =="
   if ($free -lt $need) { throw "Ổ ${letter}: không đủ chỗ: cần ~$(Format-GB $need), còn $(Format-GB $free)." }
   if (Test-Path $dest) {
-    if (@(Get-ChildItem $dest -Force).Count -gt 0) { throw "$dest đã tồn tại và không rỗng — chọn thư mục khác hoặc dọn thư mục này trước." }
+    if (@(Get-ChildItem $dest -Force).Count -gt 0) { throw "$dest đã tồn tại và không rỗng - chọn thư mục khác hoặc dọn thư mục này trước." }
   }
   if (-not (Confirm-Step "Sẽ TẮT toàn bộ WSL (Docker, Claude Code, tmux trong Ubuntu dừng lại). Tiếp tục?")) { exit 1 }
   New-Item -ItemType Directory -Force -Path $targetDir | Out-Null
@@ -170,7 +170,7 @@ function Move-Distro($info, [string]$targetDir) {
   }
 
   # Cách 2 (WSL cũ): export ra file tar trên ổ đích → unregister → import. Không xóa gì trước khi bản tar đã đủ.
-  Write-Host "wsl --manage --move không dùng được (WSL cũ). Chuyển bằng export/import — lâu hơn, cần ~2 lần dung lượng ở ổ đích."
+  Write-Host "wsl --manage --move không dùng được (WSL cũ). Chuyển bằng export/import - lâu hơn, cần ~2 lần dung lượng ở ổ đích."
   $need2 = [math]::Max($info.SizeBytes * 2.2, 4GB)
   if ($free -lt $need2) { throw "Ổ ${letter}: cần ~$(Format-GB $need2) cho export/import, còn $(Format-GB $free). Hoặc chạy 'wsl --update' rồi thử lại (cách 1 không cần chỗ trống gấp đôi)." }
   $user = ((& wsl.exe -d $Distro -- whoami) | Out-String).Trim()
@@ -178,18 +178,18 @@ function Move-Distro($info, [string]$targetDir) {
   $tar = Join-Path $targetDir "$Distro-backup.tar"
   Write-Host "  Export → $tar (có thể mất vài phút)…"
   if ((Invoke-Wsl @('--export', $Distro, $tar)) -ne 0 -or -not (Test-Path $tar) -or (Get-Item $tar).Length -lt 50MB) {
-    throw "Export thất bại — chưa xóa gì, $Distro vẫn nguyên ở $($info.BasePath)."
+    throw "Export thất bại - chưa xóa gì, $Distro vẫn nguyên ở $($info.BasePath)."
   }
   Write-Host "  Bản sao lưu: $tar ($(Format-GB (Get-Item $tar).Length))"
   if (-not (Confirm-Step "Gỡ bản $Distro ở $($info.BasePath) rồi import từ bản sao lưu sang $dest?")) {
     Write-Host "Đã dừng. Bản sao lưu giữ ở $tar."; exit 1
   }
-  if ((Invoke-Wsl @('--unregister', $Distro)) -ne 0) { throw "Unregister thất bại — $Distro vẫn ở chỗ cũ, bản sao lưu ở $tar." }
+  if ((Invoke-Wsl @('--unregister', $Distro)) -ne 0) { throw "Unregister thất bại - $Distro vẫn ở chỗ cũ, bản sao lưu ở $tar." }
   if ((Invoke-Wsl @('--import', $Distro, $dest, $tar, '--version', '2')) -ne 0) {
-    throw "Import thất bại. Dữ liệu an toàn trong $tar — chạy lại tay: wsl --import $Distro $dest $tar --version 2"
+    throw "Import thất bại. Dữ liệu an toàn trong $tar - chạy lại tay: wsl --import $Distro $dest $tar --version 2"
   }
   if ($user -and $user -ne 'root') {
-    # Sau import, user mặc định là root — đặt lại user cũ qua /etc/wsl.conf.
+    # Sau import, user mặc định là root - đặt lại user cũ qua /etc/wsl.conf.
     $sh = "grep -q '^\[user\]' /etc/wsl.conf 2>/dev/null || printf '\n[user]\ndefault=%s\n' '$user' >> /etc/wsl.conf"
     Invoke-Wsl @('-d', $Distro, '-u', 'root', '--', 'sh', '-c', $sh) | Out-Null
     Invoke-Wsl @('--terminate', $Distro) | Out-Null
@@ -202,7 +202,7 @@ function Move-Distro($info, [string]$targetDir) {
 function Show-Status {
   Write-Host "== Trạng thái WSL =="
   $v = Get-WslVersion
-  Write-Host ("  WSL: " + $(if ($v) { $v } else { "bản có sẵn trong Windows (cũ) — nên chạy wsl --update" }))
+  Write-Host ("  WSL: " + $(if ($v) { $v } else { "bản có sẵn trong Windows (cũ) - nên chạy wsl --update" }))
   $info = Get-DistroInfo $Distro
   if ($info) { Write-Host "  $Distro`: $($info.Vhd) ($(Format-GB $info.SizeBytes))" } else { Write-Host "  $Distro`: chưa cài" }
   $cfg = Join-Path $env:USERPROFILE ".wslconfig"
@@ -235,7 +235,7 @@ if ($MoveTo) {
   # Tương thích bản cũ: -MoveTo chỉ chuyển, không cài.
   $target = Resolve-TargetDir
   $info = Get-DistroInfo $Distro
-  if (-not $info) { throw "$Distro chưa cài — dùng: .\setup-wsl.ps1 -InstallDir $MoveTo" }
+  if (-not $info) { throw "$Distro chưa cài - dùng: .\setup-wsl.ps1 -InstallDir $MoveTo" }
   Move-Distro $info $target
   Set-SwapLocation $target
   exit 0
@@ -243,7 +243,7 @@ if ($MoveTo) {
 
 if (-not $Configure) {
   $build = [int](Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion").CurrentBuildNumber
-  if ($build -lt 19041) { throw "WSL2 cần Windows 10 bản 2004 (build 19041) trở lên. Máy đang ở build $build — chạy Windows Update trước." }
+  if ($build -lt 19041) { throw "WSL2 cần Windows 10 bản 2004 (build 19041) trở lên. Máy đang ở build $build - chạy Windows Update trước." }
   # Ảo hóa phần cứng tắt trong BIOS → lỗi HCS_E_HYPERV_NOT_INSTALLED / 0x80370102 về sau (runbook hopnhat)
   $virt = (Get-CimInstance Win32_Processor | Select-Object -First 1).VirtualizationFirmwareEnabled
   $hv = (Get-CimInstance Win32_ComputerSystem).HypervisorPresent
@@ -251,7 +251,7 @@ if (-not $Configure) {
     throw "Ảo hóa phần cứng đang TẮT. Vào BIOS bật Intel VT-x / AMD SVM, rồi chạy lại script này."
   }
 
-  # WSL mới trước: cần cho 'wsl --install --location' và 'wsl --manage --move'. Máy chưa có WSL thì lệnh này lỗi — bỏ qua.
+  # WSL mới trước: cần cho 'wsl --install --location' và 'wsl --manage --move'. Máy chưa có WSL thì lệnh này lỗi - bỏ qua.
   try { wsl.exe --update | Out-Host } catch { }
 
   $target = Resolve-TargetDir

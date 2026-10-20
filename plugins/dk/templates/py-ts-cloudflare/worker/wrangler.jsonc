@@ -1,6 +1,6 @@
 // Cloudflare Worker: serves the web app (static assets from ../web/dist) and the JSON API under /api/*.
 // Top level = PRODUCTION (`wrangler deploy` without --env). Agents may only use --env staging; the dk guard
-// blocks the rest. database_id values are not secrets — fill them from `npx wrangler d1 create <name>`.
+// blocks the rest. database_id values are not secrets - fill them from `npx wrangler d1 create <name>`.
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "goldenpath",

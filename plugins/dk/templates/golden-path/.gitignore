@@ -18,7 +18,7 @@ backups/
 frontend/android/
 frontend/ios/
 
-# client data samples — never commit
+# client data samples - never commit
 docs/input/misa/*
 !docs/input/misa/.gitkeep
 docs/input/client-data/

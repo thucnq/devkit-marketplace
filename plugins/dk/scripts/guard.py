@@ -32,7 +32,7 @@ SECRET_ALLOW = re.compile(r"(\.env\.example|example\.env|\.env\.sample|\.dev\.va
 _CTX = {}
 
 # Quality gates the agent must not weaken (idea from ECC config-protection). Humans edit them in a
-# session started with DK_ALLOW_QUALITY_EDIT=1 — the agent cannot set that variable itself.
+# session started with DK_ALLOW_QUALITY_EDIT=1 - the agent cannot set that variable itself.
 QUALITY_FILES = re.compile(
     r"(^|/)(eslint\.config\.[cm]?[jt]s|\.eslintrc(\.\w+)?|\.prettierrc(\.\w+)?|prettier\.config\.[cm]?js"
     r"|tsconfig(\.\w+)?\.json|spotbugs-exclude\.xml|[\w-]*pmd[\w-]*\.xml|\.gitleaks\.toml|\.semgrepignore"
@@ -46,7 +46,7 @@ SUPPRESSIONS = {
     "nosemgrep": r"nosemgrep", "gitleaks:allow": r"gitleaks:allow",
     ".skip/.only": r"\b(?:it|test|describe)\.(?:skip|only)\(|\bx(?:it|describe)\(",
 }
-# Python only (dk 0.7.0) — checked in .py files, so a Java project never trips on them.
+# Python only (dk 0.7.0) - checked in .py files, so a Java project never trips on them.
 SUPPRESSIONS_PY = {
     "pytest skip/xfail": r"pytest\.mark\.(?:skip|skipif|xfail)\b|\bpytest\.(?:skip|xfail)\(",
     "# noqa": r"#\s*noqa\b", "# type: ignore": r"#\s*type:\s*ignore", "pragma: no cover": r"pragma:\s*no\s*cover",
@@ -118,8 +118,8 @@ SHELLS = re.compile(r"\b(?:bash|sh|zsh|ssh|python3?|node|eval)\b")
 
 
 def code_only(cmd: str) -> str:
-    """The command with *text* blanked — heredoc bodies fed to non-shell commands and quoted arguments of
-    message flags (-m, --body, --title…) or echo/printf — so a commit message or PR body that merely
+    """The command with *text* blanked - heredoc bodies fed to non-shell commands and quoted arguments of
+    message flags (-m, --body, --title…) or echo/printf - so a commit message or PR body that merely
     mentions `git push` / `gh pr merge` is not mistaken for running it (known false positive; idea from
     ECC's shell-segment parsing). Code passed to a shell (bash -c, heredoc into bash/ssh) is kept, and
     secrets/prod hosts are still checked on the full text."""
@@ -155,14 +155,14 @@ def check_bash(cmd: str, root: Path) -> None:
     full = " ".join(cmd.split())
     flat = code_only(cmd)
 
-    # 0. Shell writes to quality configs (sed -i, redirection, tee, cp/mv onto them) — same rule as the file tools.
+    # 0. Shell writes to quality configs (sed -i, redirection, tee, cp/mv onto them) - same rule as the file tools.
     if (root / ".dk" / "state.md").exists() and os.environ.get("DK_ALLOW_QUALITY_EDIT") != "1":
         for target in shell_write_targets(cmd):
             target = target.replace("\\", "/")
             if target.startswith("./"):
                 target = target[2:]
             if (QUALITY_FILES.search(target) or target.endswith("pyproject.toml")) and (root / target).exists():
-                block(f"Lệnh shell sửa {target} — cấu hình kiểm tra chất lượng, agent không được nới. Sửa code; "
+                block(f"Lệnh shell sửa {target} - cấu hình kiểm tra chất lượng, agent không được nới. Sửa code; "
                       "cần đổi luật thì nhờ người (DK_ALLOW_QUALITY_EDIT=1).", "quality_config")
 
     # 0b. State file and committed migrations: shell writes count like Edit/Write.
@@ -173,7 +173,7 @@ def check_bash(cmd: str, root: Path) -> None:
                 block(".dk/state.md chỉ được sửa qua scripts/dk-state.sh.", "state_edit")
             if "/db/migration/" in r and (root / r).exists() and subprocess.run(
                     ["git", "ls-files", "--error-unmatch", r], cwd=root, capture_output=True).returncode == 0:
-                block(f"{r} đã commit — không sửa migration cũ. Tạo file V<yyyyMMddHHmm>__*.sql mới.", "migration_edit")
+                block(f"{r} đã commit - không sửa migration cũ. Tạo file V<yyyyMMddHHmm>__*.sql mới.", "migration_edit")
 
     # 1. Secrets never enter the model's context.
     if is_secret(full):
@@ -216,13 +216,13 @@ def check_bash(cmd: str, root: Path) -> None:
         try:
             load_stack(root)
         except StackError as e:
-            block(f"{e}\nSửa .dk/stack.toml trước khi commit — profile hỏng thì các cổng không biết chạy gì.", "stack_invalid")
+            block(f"{e}\nSửa .dk/stack.toml trước khi commit - profile hỏng thì các cổng không biết chạy gì.", "stack_invalid")
         mode = "precommit-strict" if os.environ.get("CLAUDE_PLUGIN_OPTION_STRICT_GATES", "true") != "false" else "precommit"
         r = subprocess.run([shutil.which("bash"), str(PLUGIN_ROOT / "scripts" / "dk-check.sh"), mode], cwd=root,
                            capture_output=True, text=True)
         if r.returncode != 0:
             tail = "\n".join((r.stdout + r.stderr).strip().splitlines()[-25:])
-            block("Pre-commit checks FAILED — sửa rồi commit lại:\n" + tail, "precommit_failed")
+            block("Pre-commit checks FAILED - sửa rồi commit lại:\n" + tail, "precommit_failed")
 
 
 WRANGLER_REMOTE = (  # subcommands that change a live environment (matched on the words after `wrangler`)
@@ -253,7 +253,7 @@ def check_wrangler(flat: str, root: Path) -> None:
         words = m.group(1).split()
         pos = [w for w in words if not w.startswith("-")]
         if pos[:3] == ["d1", "time-travel", "restore"]:
-            block("Khôi phục D1 (time-travel restore) ghi đè dữ liệu — chỉ người làm, theo docs/runbook.md.", "prod")
+            block("Khôi phục D1 (time-travel restore) ghi đè dữ liệu - chỉ người làm, theo docs/runbook.md.", "prod")
         live = any(tuple(pos[:len(c)]) == c for c in WRANGLER_REMOTE)
         live = live or (any(tuple(pos[:len(c)]) == c for c in WRANGLER_REMOTE_FLAG) and "--remote" in words)
         if not live or "--dry-run" in words:
@@ -278,7 +278,7 @@ def check_file(tool: str, inp: dict, root: Path) -> None:
     p = Path(path)
     rel = str(p.resolve().relative_to(root.resolve())) if p.is_absolute() and str(p.resolve()).startswith(str(root.resolve())) else path
     if is_secret(" " + rel):
-        block(f"{rel} là file bí mật — agent không đọc/ghi. Cập nhật deploy/.env.example thay vào đó.", "secret_file")
+        block(f"{rel} là file bí mật - agent không đọc/ghi. Cập nhật deploy/.env.example thay vào đó.", "secret_file")
     if tool != "Read":
         if rel.replace("\\", "/").endswith(".dk/state.md"):
             block(".dk/state.md chỉ được sửa qua scripts/dk-state.sh.", "state_edit")
@@ -286,7 +286,7 @@ def check_file(tool: str, inp: dict, root: Path) -> None:
             tracked = subprocess.run(["git", "ls-files", "--error-unmatch", str(p)], cwd=root,
                                      capture_output=True).returncode == 0
             if tracked:
-                block(f"{rel} đã commit — không sửa migration cũ. Tạo file V<yyyyMMddHHmm>__*.sql mới.", "migration_edit")
+                block(f"{rel} đã commit - không sửa migration cũ. Tạo file V<yyyyMMddHHmm>__*.sql mới.", "migration_edit")
         check_quality(tool, inp, rel.replace("\\", "/"), p, root)
 
 
@@ -311,7 +311,7 @@ def check_quality(tool: str, inp: dict, rel: str, p: Path, root: Path) -> None:
     if os.environ.get("DK_ALLOW_QUALITY_EDIT") == "1" or not (root / ".dk" / "state.md").exists():
         return
     if QUALITY_FILES.search(rel) and p.exists():
-        block(f"{rel} là cấu hình kiểm tra chất lượng — agent không sửa để cho qua. Sửa code; nếu thật sự cần đổi "
+        block(f"{rel} là cấu hình kiểm tra chất lượng - agent không sửa để cho qua. Sửa code; nếu thật sự cần đổi "
               "luật, dừng lại và nhờ người (người mở phiên với DK_ALLOW_QUALITY_EDIT=1).", "quality_config")
     new, old = _new_and_old(tool, inp, p)
     if not new:
@@ -330,7 +330,7 @@ def check_quality(tool: str, inp: dict, rel: str, p: Path, root: Path) -> None:
         if mins_new and mins_old and min(map(float, mins_new)) < min(map(float, mins_old)):
             weak.append("hạ <minimum> coverage")
         if weak:
-            block(f"pom.xml: không {', '.join(weak)} — cổng chất lượng chỉ người được nới.", "quality_config")
+            block(f"pom.xml: không {', '.join(weak)} - cổng chất lượng chỉ người được nới.", "quality_config")
 
 
 def check_pyproject(tool: str, inp: dict, rel: str, p: Path) -> None:
@@ -358,10 +358,10 @@ def check_pyproject(tool: str, inp: dict, rel: str, p: Path) -> None:
     try:
         after = tomllib.loads(new).get("tool", {})
     except tomllib.TOMLDecodeError as e:
-        block(f"{rel} sẽ sai cú pháp TOML sau khi sửa ({e}) — sửa lại edit.", "quality_config")
+        block(f"{rel} sẽ sai cú pháp TOML sau khi sửa ({e}) - sửa lại edit.", "quality_config")
     changed = [k for k in PYPROJECT_GUARDED if before.get(k) != after.get(k)]
     if changed:
-        block(f"{rel}: không sửa [tool.{', tool.'.join(changed)}] — cấu hình lint/test/coverage chỉ người được đổi "
+        block(f"{rel}: không sửa [tool.{', tool.'.join(changed)}] - cấu hình lint/test/coverage chỉ người được đổi "
               "(DK_ALLOW_QUALITY_EDIT=1). Thêm thư viện vào [project] / [dependency-groups] thì được.", "quality_config")
 
 
@@ -377,7 +377,7 @@ REPO_CHANGING_GIT = re.compile(r"\bgit\s+(commit|push|checkout|switch|reset|stas
 
 
 class LegacyScope:
-    """0.6.1 java-spring layout — used whenever the project has no .dk/stack.toml."""
+    """0.6.1 java-spring layout - used whenever the project has no .dk/stack.toml."""
     roots = ("backend", "backend/src", "backend/src/main", "backend/src/main/java", "frontend", "frontend/src", ".")
 
     def prod_code(self, r, is_dir=False):
@@ -451,10 +451,10 @@ def check_agent(role: str, tool: str, inp: dict, root: Path) -> None:
             for tok in re.findall(r"[\w./-]+", cmd):
                 r = rel_path(tok, root).rstrip("/")
                 if sc.prod_code(r) or (reads and r in sc.roots):
-                    block(f"test-author viết test hộp đen — không đọc code production ({tok}). Dùng docs/api/openapi.yaml, "
+                    block(f"test-author viết test hộp đen - không đọc code production ({tok}). Dùng docs/api/openapi.yaml, "
                           "migration và test có sẵn.", "agent_blind")
         if role in ("reviewer", "doc-sync") and REPO_CHANGING_GIT.search(code_only(cmd)):
-            block(f"{role} không commit/đổi nhánh/sửa cây làm việc — phiên chính làm việc đó.", "agent_git")
+            block(f"{role} không commit/đổi nhánh/sửa cây làm việc - phiên chính làm việc đó.", "agent_git")
         for target in shell_write_targets(cmd):
             r = rel_path(target, root)
             if r.startswith(("/tmp/", "/dev/")):
@@ -471,11 +471,11 @@ def check_agent(role: str, tool: str, inp: dict, root: Path) -> None:
     if role == "test-author":
         if tool == "Grep" and (not r or r in (".", "")):
             block("test-author: Grep phải có `path` trong vùng được đọc (docs/, backend/src/test/, "
-                  "backend/src/main/resources/, file test frontend) — không quét cả repo gồm code production.", "agent_blind")
+                  "backend/src/main/resources/, file test frontend) - không quét cả repo gồm code production.", "agent_blind")
         if tool in ("Read", "Grep") and r and not sc.test_read_ok(r) and sc.prod_code(r, is_dir=tool == "Grep"):
-            block(f"test-author viết test hộp đen — không đọc code production ({r}).", "agent_blind")
+            block(f"test-author viết test hộp đen - không đọc code production ({r}).", "agent_blind")
         if tool == "Grep" and r and sc.grep_too_wide(r):
-            block(f"test-author: Grep trong {r} chạm code production — thu hẹp `path`.", "agent_blind")
+            block(f"test-author: Grep trong {r} chạm code production - thu hẹp `path`.", "agent_blind")
         if tool in ("Edit", "Write", "MultiEdit", "NotebookEdit") and not sc.test_write_ok(r):
             block(f"test-author chỉ ghi file test, không ghi {r}.", "agent_scope")
     elif role == "doc-sync" and tool in ("Edit", "Write", "MultiEdit", "NotebookEdit") and not DOC_WRITE_OK.match(r):

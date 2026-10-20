@@ -1,4 +1,4 @@
-# Tiêu chí nghiệm thu — Đăng nhập (AUTH)
+# Tiêu chí nghiệm thu - Đăng nhập (AUTH)
 
 > Có sẵn trong golden path. Giữ nguyên file này trừ khi dự án đổi cơ chế đăng nhập.
 

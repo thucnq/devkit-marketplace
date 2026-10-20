@@ -54,7 +54,7 @@ def fmt(n):
 def main():
     ev = load()
     if not ev:
-        print("dk-report: chưa có log trong .dk/log/ — log được ghi tự động khi dùng plugin trong dự án.")
+        print("dk-report: chưa có log trong .dk/log/ - log được ghi tự động khi dùng plugin trong dự án.")
         return 1
     OUT.mkdir(parents=True, exist_ok=True)
     first, last = ts(ev[0]), ts(ev[-1])
@@ -173,7 +173,7 @@ def main():
     stamp = (last or datetime.now()).strftime("%Y%m%d")
     (OUT / f"{stamp}-metrics.json").write_text(json.dumps(metrics, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    L = [f"# Báo cáo log dự án — {Path.cwd().name}", "",
+    L = [f"# Báo cáo log dự án - {Path.cwd().name}", "",
          f"Từ {ev[0]['ts'][:10]} đến {ev[-1]['ts'][:10]} ({days} ngày) · {len(authors)} người ({', '.join(authors)}) · "
          f"{len(sessions)} phiên · {fmt(len(ev))} sự kiện", "",
          "## Token", "",

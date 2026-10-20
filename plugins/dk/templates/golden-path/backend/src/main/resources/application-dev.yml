@@ -1,4 +1,4 @@
-# Local development defaults — NOT secrets. Production gets real values from deploy/envs/*.env
+# Local development defaults - NOT secrets. Production gets real values from deploy/envs/*.env
 # and fails to start if any is missing (no defaults in application.yml).
 spring:
   datasource:

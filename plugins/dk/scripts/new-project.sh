@@ -32,7 +32,7 @@ if [ "$STACK_NAME" = py-ts-cloudflare ]; then
   chmod +x tools/*.sh .githooks/* 2>/dev/null || true
   git init -q -b main
   git config core.hooksPath .githooks
-  printf '# dk state (managed by dk-state.sh — do not edit)\nphase: spec\nproject: %s\nstack: py-ts-cloudflare\n' "$SLUG" > .dk/state.md
+  printf '# dk state (managed by dk-state.sh - do not edit)\nphase: spec\nproject: %s\nstack: py-ts-cloudflare\n' "$SLUG" > .dk/state.md
   git add -A && git commit -q -m "chore: scaffold from dk golden path py-ts-cloudflare" && echo "✅ $SLUG created (stack py-ts-cloudflare)"
   exit 0
 fi
@@ -78,5 +78,5 @@ fi
 git init -q -b main
 git config core.hooksPath .githooks   # human commits get the secret scan too
 mkdir -p .dk
-printf '# dk state (managed by dk-state.sh — do not edit)\nphase: spec\nproject: %s\npackage: %s\n' "$SLUG" "$PKG" > .dk/state.md
+printf '# dk state (managed by dk-state.sh - do not edit)\nphase: spec\nproject: %s\npackage: %s\n' "$SLUG" "$PKG" > .dk/state.md
 git add -A && git commit -q -m "chore: scaffold from dk golden path" && echo "✅ $SLUG created (package $PKG)"
