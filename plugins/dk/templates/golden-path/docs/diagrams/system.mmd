@@ -2,7 +2,7 @@
 flowchart LR
   user([Người dùng<br/>trình duyệt / app Capacitor])
   google[[Google OAuth]]
-  subgraph vm[Máy chủ / máy trạm khách hàng — Docker Compose]
+  subgraph vm[Máy chủ / máy trạm khách hàng - Docker Compose]
     caddy[Caddy<br/>HTTPS, file tĩnh React]
     api[API Spring Boot 3<br/>Java 21]
     db[(PostgreSQL 17<br/>RLS theo tenant)]

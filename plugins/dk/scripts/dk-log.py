@@ -161,14 +161,14 @@ def main():
         hits = [k for k, rx in EXCUSES.items() if re.search(rx, text, re.I)] if kind == "turn" else []
         if hits:
             emit(root, {**base, "ev": "excuse", "keys": hits})
-            notices.append(f"⚠ dk: câu trả lời vừa rồi có dấu hiệu bỏ dở ({', '.join(hits)}) — kiểm lại trước khi chấp nhận.")
+            notices.append(f"⚠ dk: câu trả lời vừa rồi có dấu hiệu bỏ dở ({', '.join(hits)}) - kiểm lại trước khi chấp nhận.")
         ctx = s.get("ctx", 0)
         if ctx < s.get("ctx_warned", 0) - COMPACT_STEP:  # compacted or cleared since the last notice
             s["ctx_warned"] = 0
         if kind == "turn" and ctx >= COMPACT_AT and ctx >= s.get("ctx_warned", 0) + COMPACT_STEP:
             s["ctx_warned"] = ctx
             emit(root, {**base, "ev": "context_high", "tokens": ctx})
-            notices.append(f"ℹ dk: ngữ cảnh ~{ctx // 1000}k token. Trạng thái đã nằm trong file (.dk/, docs/) — "
+            notices.append(f"ℹ dk: ngữ cảnh ~{ctx // 1000}k token. Trạng thái đã nằm trong file (.dk/, docs/) - "
                            "xong bước hiện tại thì /compact hoặc /clear để đỡ tốn token.")
         if notices:
             print(json.dumps({"systemMessage": " ".join(notices)}, ensure_ascii=False))

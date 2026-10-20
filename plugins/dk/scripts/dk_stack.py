@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stack profile (.dk/stack.toml) — the one place that knows which languages a project uses.
+"""Stack profile (.dk/stack.toml) - the one place that knows which languages a project uses.
 
 No .dk/stack.toml  ⇒ load() returns None and every caller keeps its 0.6.1 behaviour (java-spring).
 Bad .dk/stack.toml ⇒ StackError: callers fail closed (dk-check FAIL, guard blocks commits), never silently
@@ -298,7 +298,7 @@ def main(argv) -> int:
         return 0 if stack else 1
     if cmd == "validate":
         print("dk-stack: không có .dk/stack.toml (profile java-spring)" if stack is None
-              else f"dk-stack: OK — {stack.profile}, {len(stack.components)} thành phần")
+              else f"dk-stack: OK - {stack.profile}, {len(stack.components)} thành phần")
         return 0
     if stack is None:
         print("dk-stack: không có .dk/stack.toml", file=sys.stderr)

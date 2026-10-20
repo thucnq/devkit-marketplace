@@ -102,13 +102,13 @@ def main():
     if ev == "note":
         text = sys.stdin.read().strip()
         if not text:
-            print("Ghi chú trống — dùng: /dk:note #tag nội dung")
+            print("Ghi chú trống - dùng: /dk:note #tag nội dung")
             return
         data["tags"] = re.findall(r"#([\w-]+)", text) or ["general"]
         data["text"] = redact(text, 2000)
     root = project_root()
     if root is None:
-        print("Không tìm thấy thư mục .dk — chạy trong một dự án dk.")
+        print("Không tìm thấy thư mục .dk - chạy trong một dự án dk.")
         return
     emit(root, data)
     if ev == "note":

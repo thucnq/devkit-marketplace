@@ -1,10 +1,10 @@
 ---
 name: vn-data-protection
-description: Vietnam personal data protection rules (Luật Bảo vệ dữ liệu cá nhân 2025 + Nghị định 356/2025/NĐ-CP) translated into engineering requirements. Use when a feature collects, stores, or processes personal data — especially biometric, health, ID card, location, or children's data.
+description: Vietnam personal data protection rules (Luật Bảo vệ dữ liệu cá nhân 2025 + Nghị định 356/2025/NĐ-CP) translated into engineering requirements. Use when a feature collects, stores, or processes personal data - especially biometric, health, ID card, location, or children's data.
 user-invocable: false
 ---
 
-# Bảo vệ dữ liệu cá nhân — yêu cầu kỹ thuật
+# Bảo vệ dữ liệu cá nhân - yêu cầu kỹ thuật
 
 > Đây là bản tóm tắt kỹ thuật để thiết kế, không phải tư vấn pháp lý. Với dự án xử lý dữ liệu nhạy cảm, khuyên khách hàng tham khảo luật sư trước khi go-live. Luôn kiểm tra văn bản hiện hành tại thuvienphapluat.vn trước khi chốt thiết kế.
 
@@ -16,12 +16,12 @@ user-invocable: false
 | Yêu cầu | Cơ bản | Nhạy cảm |
 |---|---|---|
 | Đồng ý của chủ thể | Rõ ràng, chủ động (checkbox không tích sẵn), ghi mục đích | Đồng ý **riêng** cho từng mục đích, nêu rõ là dữ liệu nhạy cảm; trẻ em: đồng ý của cha mẹ/người giám hộ (và của trẻ nếu đủ tuổi theo luật) |
-| Lưu bằng chứng đồng ý | Bảng `consent` (subject, purpose, version văn bản, thời điểm, IP, kênh) — append-only | như bên trái + audit mọi lượt đọc |
+| Lưu bằng chứng đồng ý | Bảng `consent` (subject, purpose, version văn bản, thời điểm, IP, kênh) - append-only | như bên trái + audit mọi lượt đọc |
 | Mã hóa | TLS khi truyền | TLS + **mã hóa khi lưu** (`PiiEncryptedConverter`, `EncryptedFileStore`) |
 | Tối thiểu hóa | Chỉ thu trường cần cho mục đích | Xóa dữ liệu gốc (ví dụ ảnh vân tay) ngay khi đã trích xuất xong, trừ khi mục đích yêu cầu giữ |
 | Quyền chủ thể | API/chức năng: xem, sửa, xuất, **rút lại đồng ý**, **xóa** | như bên trái, thời hạn xử lý ngắn |
-| Hồ sơ đánh giá tác động | Khuyến nghị | **Bắt buộc lập và lưu** — tạo `docs/compliance/dpia.md` |
-| Chuyển dữ liệu ra nước ngoài | Lập hồ sơ đánh giá | như bên trái — lưu ý: gọi API AI/cloud ở nước ngoài để xử lý ảnh cũng là chuyển dữ liệu ra nước ngoài |
+| Hồ sơ đánh giá tác động | Khuyến nghị | **Bắt buộc lập và lưu** - tạo `docs/compliance/dpia.md` |
+| Chuyển dữ liệu ra nước ngoài | Lập hồ sơ đánh giá | như bên trái - lưu ý: gọi API AI/cloud ở nước ngoài để xử lý ảnh cũng là chuyển dữ liệu ra nước ngoài |
 | Sự cố | Quy trình thông báo trong runbook | như bên trái |
 
 ## 3. Checklist bắt buộc cho tính năng có dữ liệu nhạy cảm

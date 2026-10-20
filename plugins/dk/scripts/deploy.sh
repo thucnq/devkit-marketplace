@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Non-prod deploy over SSH with docker compose — no registry needed.
+# Non-prod deploy over SSH with docker compose - no registry needed.
 # Usage: deploy.sh <env> [--url | --verify-backup | --rollback [tag] | --releases]
 #   --rollback: start the previous release (or <tag>) again; images stay on the host and migrations are
 #               expand-only, so the old code runs on the new schema (idea from hopnhat rollback.sh).
@@ -45,7 +45,7 @@ if [ "$ACTION" = "--rollback" ]; then
 fi
 
 if [ -n "$(git status --porcelain)" ] && [ "${DK_ALLOW_DIRTY:-}" != 1 ]; then
-  echo "⛔ cây làm việc có thay đổi chưa commit — commit trước để bản deploy truy được về một commit (DK_ALLOW_DIRTY=1 để bỏ qua)"
+  echo "⛔ cây làm việc có thay đổi chưa commit - commit trước để bản deploy truy được về một commit (DK_ALLOW_DIRTY=1 để bỏ qua)"
   exit 1
 fi
 TAG="$(git rev-parse --short HEAD)$( [ -n "$(git status --porcelain)" ] && echo -dirty)"
@@ -69,5 +69,5 @@ if health; then
   remote "echo \"\$(date -u +%FT%TZ) $TAG deploy\" >> releases.log"
   echo "✅ $URL is healthy ($TAG)"; exit 0
 fi
-echo "❌ health check failed — last logs:"; remote "docker compose logs --tail=40 api"
+echo "❌ health check failed - last logs:"; remote "docker compose logs --tail=40 api"
 echo "   quay lại bản trước: deploy.sh $ENV_NAME --rollback"; exit 1

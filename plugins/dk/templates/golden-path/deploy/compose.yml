@@ -1,5 +1,5 @@
 # Production-like stack for one project on one small VM (1 vCPU / 1-2 GB): Postgres + API + Caddy.
-# Images are built locally and loaded over SSH by deploy.sh — no registry needed.
+# Images are built locally and loaded over SSH by deploy.sh - no registry needed.
 name: ${APP:-goldenpath}
 
 services:

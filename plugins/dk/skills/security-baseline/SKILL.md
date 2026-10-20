@@ -19,7 +19,7 @@ The golden path already implements everything below. Use the building blocks; ne
 - Every endpoint: `@PreAuthorize("hasRole('X')")` or explicitly listed in `SecurityConfig.PUBLIC_PATHS`. Default is deny.
 - Never trust tenant, user id, or role from the request body/query. They come from `CurrentUser` (JWT).
 
-## Multi-tenancy — Postgres Row-Level Security
+## Multi-tenancy - Postgres Row-Level Security
 - `TenantFilter` copies `tid` from the JWT into `TenantContext`; `TenantAwareDataSource` runs `set_config('app.tenant_id', <tid>, false)` on every connection checkout and clears it on return.
 - The app connects as role `app_rw` (NOT owner, NOT superuser) so RLS applies. Flyway runs as the owner.
 - Every tenant-owned table:
@@ -46,10 +46,10 @@ The golden path already implements everything below. Use the building blocks; ne
 - Never log request bodies. Never put PII in URLs, metric labels, or exception messages.
 
 ## Audit
-- `AuditService.record(action, entityType, entityId, details)` or annotate the service method with `@Audited(action = "NOTE_UPDATE", entity = "note")`. Runs in the caller's transaction — if the business change rolls back, so does its audit row.
+- `AuditService.record(action, entityType, entityId, details)` or annotate the service method with `@Audited(action = "NOTE_UPDATE", entity = "note")`. Runs in the caller's transaction - if the business change rolls back, so does its audit row.
 - Audit every state change on business entities, every login/logout/failed login, every role change, and every READ of sensitive personal data.
 - `audit_event` is range-partitioned by month; `AuditMaintenanceJob` calls the `audit_maintain(retention_months)` SECURITY DEFINER function daily (creates next partitions, drops expired). Retention: `app.audit.retention-months` (default 3).
-- `details` is JSON produced by `PiiMasker` — it never contains raw PII.
+- `details` is JSON produced by `PiiMasker` - it never contains raw PII.
 
 ## Input & output
 - Bean Validation on every request DTO (`@Valid`), with size limits on every string and collection.
@@ -57,4 +57,4 @@ The golden path already implements everything below. Use the building blocks; ne
 - File uploads: check size, magic bytes (not the extension), and re-encode images server-side before processing.
 
 ## Secrets
-- Only via environment variables (`deploy/envs/*.env`, never committed — gitleaks + the plugin's hook block it). `deploy/.env.example` lists every variable with a dummy value.
+- Only via environment variables (`deploy/envs/*.env`, never committed - gitleaks + the plugin's hook block it). `deploy/.env.example` lists every variable with a dummy value.

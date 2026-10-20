@@ -1,4 +1,4 @@
-# thuc-devkit — plugin `dk` (Delivery Kit) cho Claude Code
+# thuc-devkit - plugin `dk` (Delivery Kit) cho Claude Code
 
 Quy trình giao dự án với **3 agent**, **12 lệnh**, và **cổng kiểm soát tất định không tốn token**. Hai golden path: **java-spring** (Java 21 / Spring Boot + Postgres + React, dự án freelance) và **py-ts-cloudflare** (pipeline Python + Cloudflare Worker TypeScript + D1 + React, từ 0.7.0).
 
@@ -6,9 +6,9 @@ Quy trình giao dự án với **3 agent**, **12 lệnh**, và **cổng kiểm s
 
 ## Môi trường: WSL2 Ubuntu (khuyến nghị cho máy Windows 10/11)
 
-Claude Code, agent, hook, Maven, Docker chạy **trong WSL2**; Windows chỉ chạy IntelliJ và trình duyệt. Chạy trực tiếp trên Windows (Git Bash) gây lỗi CRLF, mất quyền thực thi, hook chạy sai — phiên dk sẽ cảnh báo khi phát hiện.
+Claude Code, agent, hook, Maven, Docker chạy **trong WSL2**; Windows chỉ chạy IntelliJ và trình duyệt. Chạy trực tiếp trên Windows (Git Bash) gây lỗi CRLF, mất quyền thực thi, hook chạy sai - phiên dk sẽ cảnh báo khi phát hiện.
 
-1. PowerShell (Admin): `plugins/dk/scripts/windows/setup-wsl.ps1 -Drive D` — cài WSL2 + Ubuntu 24.04 vào ổ D (bỏ `-Drive` thì script hỏi chọn ổ; Ubuntu đã ở ổ C thì lệnh này chuyển sang D), ghi `.wslconfig`.
+1. PowerShell (Admin): `plugins/dk/scripts/windows/setup-wsl.ps1 -Drive D` - cài WSL2 + Ubuntu 24.04 vào ổ D (bỏ `-Drive` thì script hỏi chọn ổ; Ubuntu đã ở ổ C thì lệnh này chuyển sang D), ghi `.wslconfig`.
 2. Trong Ubuntu: cài công cụ, Claude Code, clone repo vào `~/` (không đặt ở `/mnt/c`), chạy `/dk:doctor`.
 3. IntelliJ: mở project qua `\\wsl$`, JDK của WSL, cấu hình chạy/debug có sẵn trong `.run/`.
 4. (Tùy chọn) `setup-wsl.ps1 -Configure`: Remote Control tự chạy trong tmux khi đăng nhập Windows.
@@ -61,7 +61,7 @@ Sau dự án: chạy `/dk:retro`, rồi mang `*-retro.md` + `*-metrics.json` và
 
 | Yêu cầu | Cơ chế | Tốn token |
 |---|---|---|
-| Mọi AC bắt buộc có test | `ac-trace.py` (review/ship: mọi AC; CI: `--started-only` — chỉ tính năng đã bắt đầu build) | 0 |
+| Mọi AC bắt buộc có test | `ac-trace.py` (review/ship: mọi AC; CI: `--started-only` - chỉ tính năng đã bắt đầu build) | 0 |
 | Cách ly tenant | Postgres RLS + test `AC-*-TENANT` bắt buộc | 0 |
 | Kiến trúc | ArchUnit | 0 |
 | Bí mật không lọt | gitleaks / regex trong hook commit; hook chặn agent đọc `.env` | 0 |
@@ -86,9 +86,9 @@ Sau dự án: chạy `/dk:retro`, rồi mang `*-retro.md` + `*-metrics.json` và
 ## Thay đổi v0.7.1
 - `dk-state.sh require`: sửa lỗi thoát mã 1 khi spec không đổi sau khi duyệt (làm `/dk:design`, `/dk:build` dừng dù cổng đã duyệt) và lỗi cú pháp thiếu `fi` của bản vá trước.
 
-## Thay đổi v0.7.0 — stack profile (Python / TypeScript / Cloudflare)
+## Thay đổi v0.7.0 - stack profile (Python / TypeScript / Cloudflare)
 Thiết kế: [`docs/design/stack-profile.md`](docs/design/stack-profile.md).
-- `.dk/stack.toml` khai báo thành phần (`python`, `ts-worker`, `react-vite`, `java-maven`); `scripts/dk_stack.py` là nơi duy nhất đọc nó. **Dự án không có file này (QLDN và mọi dự án java-spring) chạy y như 0.6.1** — test so bảng kết quả `dk-check` với bản 0.6.1 đóng băng.
+- `.dk/stack.toml` khai báo thành phần (`python`, `ts-worker`, `react-vite`, `java-maven`); `scripts/dk_stack.py` là nơi duy nhất đọc nó. **Dự án không có file này (QLDN và mọi dự án java-spring) chạy y như 0.6.1** - test so bảng kết quả `dk-check` với bản 0.6.1 đóng băng.
 - `dk-check.sh`, `ac-trace.py`, `dk-evidence.py` (JUnit XML chung cho Surefire/pytest/vitest), `check-migrations.sh --kind wrangler-seq`, `/dk:build`, `/dk:design`, `/dk:review` theo profile. Test Python gắn AC bằng tên `test_ac_<ma>_<nn>_…`.
 - Guard: phạm vi `test-author` theo profile; chặn `# noqa`, `# type: ignore`, `pytest.mark.skip/xfail`, `pragma: no cover`; `pyproject.toml` chỉ chặn `[tool.ruff|pytest|coverage|mypy]`; `.dev.vars` là bí mật; **`wrangler deploy/rollback/secret put/d1 … --remote` không có `--env <nonprod>` bị chặn** (top-level là production); profile hỏng ⇒ chặn commit và agent.
 - Golden path `py-ts-cloudflare`: Worker phục vụ cả API lẫn web tĩnh (Workers static assets), D1, `@cloudflare/vitest-plugin`, pipeline Python (uv, ruff, pytest), CI + workflow deploy có cổng người cho production. Skill `python-conventions`, `cf-worker-conventions`, checklist review py-ts.

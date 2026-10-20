@@ -1,6 +1,6 @@
 # NFR mặc định (dự án freelance tải thấp, hạ tầng ~$0)
 
-Mỗi dòng có cách kiểm chứng tự động — NFR không kiểm chứng được thì không ghi vào BRD.
+Mỗi dòng có cách kiểm chứng tự động - NFR không kiểm chứng được thì không ghi vào BRD.
 
 | Nhóm | Yêu cầu mặc định | Kiểm chứng bằng |
 |---|---|---|

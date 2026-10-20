@@ -8,9 +8,9 @@ paths:
 
 # Backend conventions
 
-## Layout — package by feature
+## Layout - package by feature
 ```
-<base>.platform.*        shared building blocks (security, tenant, audit, pii, web, id) — change rarely
+<base>.platform.*        shared building blocks (security, tenant, audit, pii, web, id) - change rarely
 <base>.feature.<name>    one package per feature: <Name>Controller, <Name>Service, <Name>Repository, <Name> (entity), dto/
 ```
 ArchUnit (`ArchitectureTest`) enforces: controllers → services → repositories only; features never import another feature's repository or entity (call its service); `platform` never imports `feature`.
@@ -28,7 +28,7 @@ ArchUnit (`ArchitectureTest`) enforces: controllers → services → repositorie
 
 ## Database
 - Flyway `V<yyyyMMddHHmm>__<slug>.sql` (UTC timestamp, `out-of-order: true`) so parallel branches never collide; never edit a committed migration; expand-only (see `check-migrations.sh`).
-- Tenant tables follow the RLS template in `security-baseline`. Grants to `app_rw` come from the default privileges set in V1 — no per-table grant needed.
+- Tenant tables follow the RLS template in `security-baseline`. Grants to `app_rw` come from the default privileges set in V1 - no per-table grant needed.
 - Prefer one well-chosen index per real query; explain-analyze anything that scans > 10k rows.
 
 ## Testing

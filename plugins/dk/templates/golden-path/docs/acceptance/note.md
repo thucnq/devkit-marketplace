@@ -1,4 +1,4 @@
-# Tiêu chí nghiệm thu — Ghi chú (NOTE)
+# Tiêu chí nghiệm thu - Ghi chú (NOTE)
 
 > Tính năng mẫu để minh họa cấu trúc. Xóa cùng package `feature/note` và `V2__note.sql` khi bắt đầu dự án thật
 > (nhớ tạo migration mới `drop table note` nếu đã chạy trên môi trường nào đó).

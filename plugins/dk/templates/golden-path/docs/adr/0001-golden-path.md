@@ -1,4 +1,4 @@
-# 0001 — Dùng golden path cho dự án freelance tải thấp
+# 0001 - Dùng golden path cho dự án freelance tải thấp
 
 - Trạng thái: Đã chấp nhận
 - Ngày: (ngày khởi tạo dự án)

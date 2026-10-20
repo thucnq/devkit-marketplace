@@ -1,6 +1,6 @@
 ---
 name: python-conventions
-description: Conventions for Python components in a dk stack profile (batch pipelines, crawlers, LLM jobs) — layout, ruff, pytest, determinism, network adapters, secrets. Reference for /dk:build and /dk:review.
+description: Conventions for Python components in a dk stack profile (batch pipelines, crawlers, LLM jobs) - layout, ruff, pytest, determinism, network adapters, secrets. Reference for /dk:build and /dk:review.
 user-invocable: false
 ---
 
@@ -11,7 +11,7 @@ user-invocable: false
 - One module per step of a pipeline (`crawl/<source>.py`, `dedupe.py`, `moderate.py`, …) and one `cli.py` (`python -m <package> <command>`) that wires them. Steps take data in and return data out; only `cli.py` touches files, environment variables and the network clients.
 
 ## Determinism (re-runs and tests must give the same result)
-- Logic is pure: no `datetime.now()`, `random`, network or environment reads inside it — pass a clock, a seeded `random.Random(seed)` and clients as arguments.
+- Logic is pure: no `datetime.now()`, `random`, network or environment reads inside it - pass a clock, a seeded `random.Random(seed)` and clients as arguments.
 - Stable ordering everywhere output is written (sort keys, `json.dumps(..., sort_keys=True, ensure_ascii=False)`), so a re-run produces a byte-identical artifact (idempotency ACs check this).
 - Batch jobs write to a temp location and publish with one atomic step at the end; a failure before that leaves the previous output untouched.
 
@@ -23,6 +23,6 @@ user-invocable: false
 
 ## Style and gates
 - `ruff format` + `ruff check` (rules in `pyproject.toml`, which agents must not loosen). Type hints on public functions.
-- No `# noqa`, `# type: ignore`, `pytest.mark.skip/xfail`, `pragma: no cover` — the guard hook blocks them; fix the cause or ask the human.
+- No `# noqa`, `# type: ignore`, `pytest.mark.skip/xfail`, `pragma: no cover` - the guard hook blocks them; fix the cause or ask the human.
 - Secrets only from environment variables injected by GitHub Actions secrets; never log them, never write them to artifacts.
 - Coverage ≥ 80% (`--cov-fail-under` in the profile); test names carry the AC id (`test_ac_<ma>_<nn>_…`).

@@ -1,4 +1,4 @@
-# dk stack profile — đọc bởi plugin dk ≥ 0.7.0 (scripts/dk_stack.py). Sửa file này là sửa cổng kiểm tra:
+# dk stack profile - đọc bởi plugin dk ≥ 0.7.0 (scripts/dk_stack.py). Sửa file này là sửa cổng kiểm tra:
 # mọi thay đổi đi qua PR và người duyệt.
 schema = 1
 profile = "py-ts-cloudflare"

@@ -1,7 +1,7 @@
-# Thiết kế: stack profile — dk 0.7.0 hỗ trợ Python / TypeScript / Cloudflare
+# Thiết kế: stack profile - dk 0.7.0 hỗ trợ Python / TypeScript / Cloudflare
 
-> Trạng thái: **đã duyệt 2026-10-19** (4 câu hỏi mục 15: đồng ý cả 4) — đã hiện thực trong 0.7.0. Động lực: dự án cá nhân Lẩu Meme (pipeline Python + Cloudflare Worker TypeScript + D1 + React/Vite).
-> Ràng buộc cứng: dự án **không có** `.dk/stack.toml` (QLDN và mọi dự án java-spring) chạy **y hệt 0.6.1** — có test chứng minh.
+> Trạng thái: **đã duyệt 2026-10-19** (4 câu hỏi mục 15: đồng ý cả 4) - đã hiện thực trong 0.7.0. Động lực: dự án cá nhân Lẩu Meme (pipeline Python + Cloudflare Worker TypeScript + D1 + React/Vite).
+> Ràng buộc cứng: dự án **không có** `.dk/stack.toml` (QLDN và mọi dự án java-spring) chạy **y hệt 0.6.1** - có test chứng minh.
 
 ## 1. Vấn đề
 
@@ -28,7 +28,7 @@ Agent `test-author`, `reviewer` và các skill quy ước cũng chỉ nói về 
 3. **Một nơi đọc profile: `scripts/dk_stack.py`** (thư viện + CLI). Script bash gọi CLI, script Python import. Không ai tự parse `stack.toml`.
 
 ### Vì sao TOML, không YAML
-Python ≥ 3.11 có `tomllib` sẵn trong thư viện chuẩn; YAML cần PyYAML (không chắc có trên máy/CI). Ubuntu 24.04 có Python 3.12. `/dk:doctor` kiểm Python ≥ 3.11 khi dự án có `stack.toml`. Hệ quả: tên file là `.dk/stack.toml` (prompt cũ ghi `stack.yml` — đổi có chủ đích).
+Python ≥ 3.11 có `tomllib` sẵn trong thư viện chuẩn; YAML cần PyYAML (không chắc có trên máy/CI). Ubuntu 24.04 có Python 3.12. `/dk:doctor` kiểm Python ≥ 3.11 khi dự án có `stack.toml`. Hệ quả: tên file là `.dk/stack.toml` (prompt cũ ghi `stack.yml` - đổi có chủ đích).
 
 ## 3. Schema `.dk/stack.toml`
 
@@ -43,7 +43,7 @@ ac_style = "both"                      # AC-X-NN trong tên test; Python cho ph�
 name       = "pipeline"                # duy nhất; dùng trong báo cáo và dk-check
 kind       = "python"                  # python | ts-worker | react-vite | java-maven | react-spring-fe
 root       = "pipeline"                # thư mục gốc của thành phần
-src_dirs   = ["pipeline/src"]          # code production — test-author KHÔNG đọc
+src_dirs   = ["pipeline/src"]          # code production - test-author KHÔNG đọc
 test_dirs  = ["pipeline/tests"]        # test-author chỉ ghi ở đây
 read_ok    = ["pipeline/pyproject.toml", "pipeline/tests/fixtures"]  # test-author được đọc thêm
 # Các lệnh dưới chạy với cwd = root. Bỏ trống = dùng mặc định của kind (bảng mục 4).
@@ -98,7 +98,7 @@ name = "frontend"; kind = "react-spring-fe"; root = "frontend"; src_dirs = ["fro
 
 | kind | format | lint | test (+JUnit) | test_filter | coverage mặc định | build |
 |---|---|---|---|---|---|---|
-| `python` | `ruff format --check .` | `ruff check .` | `pytest -q --junitxml=…` | `-k {feature_snake}` | `--cov-fail-under=80` | — |
+| `python` | `ruff format --check .` | `ruff check .` | `pytest -q --junitxml=…` | `-k {feature_snake}` | `--cov-fail-under=80` | - |
 | `ts-worker` | `npx prettier --check .` | `npm run -s lint` | `npx vitest run --reporter=default --reporter=junit --outputFile=…` | `-t {FEATURE}` | `--coverage` + ngưỡng 80 trong cấu hình vitest | `npx wrangler deploy --dry-run --outdir=.dk/tmp/wrangler` |
 | `react-vite` | như trên | `npm run -s lint` + `npm run -s typecheck` | vitest như trên | `-t {FEATURE}` | 70 | `npm run -s build` |
 
@@ -126,14 +126,14 @@ Các bước chung giữ nguyên: gitleaks, AC traceability, migration, OpenAPI 
 - `dk_stack.ac_ids(text)` nhận cả `AC-X-NN` và (chỉ trong file `.py`) `ac_x_nn` → chuẩn hóa về `AC-X-NN`.
 - `ac-trace.py`: `TEST_GLOBS` lấy từ profile (`test_dirs` + đuôi theo kind); giữ nguyên danh sách cũ khi không có profile.
 - `dk-evidence.py`: đọc mọi file `junit` của profile (hoặc Surefire khi không có profile). Tên testcase của pytest là tên hàm, của vitest là tiêu đề đầy đủ → cùng hàm `ac_ids` lấy ra AC.
-- Ngoài `-TENANT`, `-VALIDATION` (Java), dự án không có tenant dùng `-ABUSE` (giới hạn tần suất, đầu vào độc) — `implicit` như hai cái cũ.
+- Ngoài `-TENANT`, `-VALIDATION` (Java), dự án không có tenant dùng `-ABUSE` (giới hạn tần suất, đầu vào độc) - `implicit` như hai cái cũ.
 
 ## 6. Migration `wrangler-seq`
 
 `check-migrations.sh` thêm tham số `--kind wrangler-seq --dir <dir>` (dk-check truyền từ profile; không tham số = Flyway như cũ, file trong template không đổi chữ ký).
-- Tên: `^[0-9]{4}_[a-z0-9_]+\.sql$` (đúng định dạng `wrangler d1 migrations create` sinh ra — **cần kiểm tra lại** với wrangler bản đang dùng).
+- Tên: `^[0-9]{4}_[a-z0-9_]+\.sql$` (đúng định dạng `wrangler d1 migrations create` sinh ra - **cần kiểm tra lại** với wrangler bản đang dùng).
 - Số mới phải **lớn hơn mọi số trên `base`** (hai nhánh cùng tạo `0004_` ⇒ đỏ). Dự án một người hiếm gặp, nhưng rẻ để chặn.
-- Chỉ thêm; file đã commit không sửa/xóa/đổi tên; câu phá hủy cần `-- dk:allow-destructive <lý do>` — cùng luật Flyway. D1 là SQLite: thêm `DROP INDEX`, `ALTER TABLE … DROP COLUMN` vào danh sách phá hủy (đã có `DROP`).
+- Chỉ thêm; file đã commit không sửa/xóa/đổi tên; câu phá hủy cần `-- dk:allow-destructive <lý do>` - cùng luật Flyway. D1 là SQLite: thêm `DROP INDEX`, `ALTER TABLE … DROP COLUMN` vào danh sách phá hủy (đã có `DROP`).
 
 ## 7. `guard.py`
 
@@ -169,8 +169,8 @@ docs/  (brd, acceptance/, api/openapi.yaml, adr/0001-golden-path.md, input/READM
 ```
 
 Quyết định cần duyệt:
-- **Workers static assets thay cho Pages**: một Worker phục vụ cả SPA lẫn API ⇒ một lần deploy, một lệnh rollback, cùng origin (không CORS), có Cron Triggers nếu cần. Cloudflare hiện hướng dự án mới sang Workers (có hướng dẫn chuyển từ Pages) — **cần kiểm tra** giới hạn free tier hiện hành trước khi chốt.
-- Test Worker bằng `@cloudflare/vitest-pool-workers` (chạy trong workerd với D1 cục bộ) — **cần kiểm tra** bản tương thích với vitest đang dùng.
+- **Workers static assets thay cho Pages**: một Worker phục vụ cả SPA lẫn API ⇒ một lần deploy, một lệnh rollback, cùng origin (không CORS), có Cron Triggers nếu cần. Cloudflare hiện hướng dự án mới sang Workers (có hướng dẫn chuyển từ Pages) - **cần kiểm tra** giới hạn free tier hiện hành trước khi chốt.
+- Test Worker bằng `@cloudflare/vitest-pool-workers` (chạy trong workerd với D1 cục bộ) - **cần kiểm tra** bản tương thích với vitest đang dùng.
 - `.gitignore` sẵn: `.dk/log/.sessions/`, `.dk/junit/`, `.dk/tmp/`, `.dev.vars*` (trừ `.example`), `node_modules/`, `.venv/`, `.wrangler/`, `dist/`, `.claude/settings.local.json`.
 - `.githooks/pre-commit` chặn thêm `.dev.vars*` (trừ `.example`).
 - CI nằm trong hạn mức free; repo public ⇒ Actions không giới hạn phút (**cần kiểm tra** chính sách GitHub hiện hành).
@@ -181,7 +181,7 @@ Quyết định cần duyệt:
 |---|---|
 | `/dk:new-project` | tham số `--stack java-spring|py-ts-cloudflare` (mặc định java-spring); bước build/test theo stack |
 | `/dk:build` | lệnh RED/GREEN lấy từ `dk_stack.py test-cmd <feature>` (in lệnh của từng thành phần có AC của feature); bỏ ví dụ Maven cứng ra khỏi luồng chung, giữ trong phần "java-spring" |
-| `/dk:design` | theo kind: Flyway (java) hoặc `worker/migrations/NNNN_*.sql` (D1, SQLite: `TEXT` cho id UUIDv7, `INTEGER` epoch ms cho thời gian, không RLS — cách ly bằng truy vấn); OpenAPI giữ nguyên |
+| `/dk:design` | theo kind: Flyway (java) hoặc `worker/migrations/NNNN_*.sql` (D1, SQLite: `TEXT` cho id UUIDv7, `INTEGER` epoch ms cho thời gian, không RLS - cách ly bằng truy vấn); OpenAPI giữ nguyên |
 | `/dk:review` | chọn checklist theo profile: thêm `skills/review/checklist-py-ts.md` (injection SQL trong D1 `prepare().bind()`, giới hạn tần suất, CORS, validate đầu vào, xử lý quota LLM, bí mật trong Actions, không đưa dữ liệu người chơi cho LLM) |
 | `/dk:ship` | `deploy.kind = cloudflare` ⇒ `deploy-cf.sh` (mục 10); còn lại `deploy.sh` như cũ |
 | `/dk:estimate --no-quote` | ghi `items.json` + chạy `gen-plan.py`; **không** chạy `gen-quote.py`, không hỏi đơn giá; bỏ mục cố định "Triển khai môi trường khách hàng", "Tài liệu bàn giao & đào tạo" |
@@ -191,16 +191,16 @@ Quyết định cần duyệt:
 | `test-author` | thêm mục "Theo stack": đọc `.dk/stack.toml` để biết `test_dirs`, quy ước AC ở mục 5; Python: pytest + fixture từ `tests/fixtures/`; Worker: vitest-pool-workers gọi `SELF.fetch`; dữ liệu vàng ở `<test_dir>/golden/` |
 | `reviewer` | đọc checklist theo profile |
 
-## 10. `/dk:ship` cho Cloudflare — `scripts/deploy-cf.sh <env> [--rollback [version] | --releases | --url]`
+## 10. `/dk:ship` cho Cloudflare - `scripts/deploy-cf.sh <env> [--rollback [version] | --releases | --url]`
 
 1. Từ chối cây làm việc chưa commit; từ chối env không thuộc `nonprod_envs` (lớp thứ hai sau guard).
 2. Build web, `npx wrangler d1 migrations apply <DB> --env <env> --remote` (migration chỉ thêm ⇒ code cũ vẫn chạy được trên schema mới, nên rollback code an toàn).
 3. `npx wrangler deploy --env <env>`; lấy version id từ `npx wrangler deployments list --env <env> --json` (**cần kiểm tra** cờ `--json` với bản wrangler dùng).
 4. Health: `GET <url><health>` 30 lần × 4 giây. Lỗi ⇒ `npx wrangler rollback <version trước> --env <env> -y` rồi dừng.
-5. Ghi `.dk/releases/<env>.log` (thời điểm, git sha, version id) — commit cùng tài liệu.
+5. Ghi `.dk/releases/<env>.log` (thời điểm, git sha, version id) - commit cùng tài liệu.
 - `--rollback [version]`: mặc định version liền trước trong log. Rollback chỉ đổi code; D1 không đổi (đúng với cách Cloudflare mô tả rollback). Khôi phục dữ liệu (D1 Time Travel) là việc của người, có trong runbook.
 - Không làm k6 ở bản này; smoke = health + 1 request đọc (`GET /api/daily`). Thêm k6 sau nếu cần.
-- Pipeline Python chạy bằng GitHub Actions cron trong repo dự án — không thuộc `ship`; `ship` chỉ nhắc nếu workflow cron chưa bật.
+- Pipeline Python chạy bằng GitHub Actions cron trong repo dự án - không thuộc `ship`; `ship` chỉ nhắc nếu workflow cron chưa bật.
 
 ## 11. File phải sửa / thêm
 
@@ -238,7 +238,7 @@ Version 0.7.0, CHANGELOG, README. Mô tả PR có mục **"Nâng cấp QLDN"**: 
 
 ## 15. Câu hỏi cần duyệt
 
-1. TOML (`.dk/stack.toml`) thay cho YAML — đồng ý?
-2. Workers static assets thay cho Cloudflare Pages — đồng ý?
-3. Khi không có profile, giữ nguyên nhánh code 0.6.1 (hai đường code song song một thời gian) thay vì ép java-spring đi qua profile — đồng ý?
-4. Bỏ k6 khỏi `ship` Cloudflare ở bản này — đồng ý?
+1. TOML (`.dk/stack.toml`) thay cho YAML - đồng ý?
+2. Workers static assets thay cho Cloudflare Pages - đồng ý?
+3. Khi không có profile, giữ nguyên nhánh code 0.6.1 (hai đường code song song một thời gian) thay vì ép java-spring đi qua profile - đồng ý?
+4. Bỏ k6 khỏi `ship` Cloudflare ở bản này - đồng ý?

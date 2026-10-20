@@ -7,7 +7,7 @@ import javax.crypto.spec.SecretKeySpec;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
-/** app.security.* — jwtSecret is base64 of at least 32 random bytes (openssl rand -base64 48). */
+/** app.security.* - jwtSecret is base64 of at least 32 random bytes (openssl rand -base64 48). */
 @ConfigurationProperties("app.security")
 public record AppSecurityProperties(
     String jwtSecret,

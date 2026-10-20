@@ -7,7 +7,7 @@ Usage:
   gen-plan.py --summary            one status line (session-start hook)
 
 Reads   docs/estimate/items.json         (items, params; see skills/estimate/items.schema.md)
-        docs/plan/tien-do.md             (if present: what humans ticked/typed — the source of truth for progress)
+        docs/plan/tien-do.md             (if present: what humans ticked/typed - the source of truth for progress)
         docs/acceptance/*.md + tests     (AC lists per item, "has test" flag)
 Writes  docs/plan/tien-do.md             checklist: items + their ACs, baseline dates, editable progress fields
         docs/plan/gantt.html             self-contained Gantt + checklist (no CDN, works offline)
@@ -34,7 +34,7 @@ HERE = Path(__file__).resolve().parent
 TODAY = dt.date.today()
 
 # Vietnamese public holidays. Fixed solar dates every year; lunar ones (Tết, Giỗ Tổ) and official
-# make-up days change yearly — defaults below are the announced/expected ones: CHECK each year and put
+# make-up days change yearly - defaults below are the announced/expected ones: CHECK each year and put
 # the official list into params.holidays (it replaces the lunar defaults).
 FIXED_HOLIDAYS = ["01-01", "04-30", "05-01", "09-02"]
 LUNAR_DEFAULTS = ["2026-02-14..2026-02-22", "2026-04-27", "2026-09-01",
@@ -213,7 +213,7 @@ def main():
 
     src = Path(a.items)
     if not src.exists():
-        print(f"gen-plan: thiếu {src} — chạy /dk:estimate trước")
+        print(f"gen-plan: thiếu {src} - chạy /dk:estimate trước")
         return 0 if a.summary else 1
     data = json.loads(src.read_text(encoding="utf-8"))
     p = data.get("params", {})
@@ -346,7 +346,7 @@ def main():
     ideal_m = sum(it["points"] for it in items) * (1 + overhead) / n_eng / wdm
     sched_m = cal.between(start, kh_end) / wdm
     print(f"  báo giá giả định ~{ideal_m:.1f} tháng (chia đều {n_eng} kỹ sư) · lịch theo phụ thuộc {sched_m:.1f} tháng code"
-          + (" — phụ thuộc làm dài lịch, xem lại deps hoặc báo khách mốc thực tế" if sched_m > ideal_m * 1.25 else ""))
+          + (" - phụ thuộc làm dài lịch, xem lại deps hoặc báo khách mốc thực tế" if sched_m > ideal_m * 1.25 else ""))
     print(f"  {summary}")
     lates = [it for it in items if it["status"] == "late"][:5]
     for it in lates:
@@ -355,7 +355,7 @@ def main():
     if all_acs and unmapped:
         print(f"  {unmapped} hạng mục chưa gắn AC (thêm \"ac\": [\"AC-<MÃ>\"] trong items.json)")
     if not p.get("holidays"):
-        print("  ngày nghỉ âm lịch dùng mặc định trong gen-plan.py — kiểm tra lại và đặt params.holidays")
+        print("  ngày nghỉ âm lịch dùng mặc định trong gen-plan.py - kiểm tra lại và đặt params.holidays")
     print(f"  → {out_dir}/tien-do.md · {out_dir}/gantt.html · {out_dir}/gantt.md")
     return 0
 
@@ -365,9 +365,9 @@ def esc(s):
 
 
 def render_md(items, m):
-    L = [f"# Tiến độ — {m['title']}", "",
+    L = [f"# Tiến độ - {m['title']}", "",
          "> Sinh bởi `/dk:plan` (gen-plan.py) từ `" + m["src"] + "`. **Người sửa trực tiếp file này**: dấu `[x]` (hạng mục hoặc AC), "
-         "`tiến độ: N%`, `người`, `bắt đầu`, `xong` (YYYY-MM-DD), `ghi chú` — giữ nguyên dấu ` · ` giữa các trường. "
+         "`tiến độ: N%`, `người`, `bắt đầu`, `xong` (YYYY-MM-DD), `ghi chú` - giữ nguyên dấu ` · ` giữa các trường. "
          "Chạy lại `/dk:plan` để tính dự báo và vẽ lại `gantt.html`. `KH` là kế hoạch gốc, chỉ đổi bằng `/dk:plan rebaseline`.",
          f"> Bắt đầu dự án: {m['start']} · Kỹ sư: {m['engineers']} ({', '.join(m['lanes'])}) · "
          + (f"Giờ/tuần: {m['hours_per_week']:g} · " if m.get("hours_per_week") else "") +
@@ -394,7 +394,7 @@ def render_mermaid(items, m):
     def clean(s):
         return re.sub(r"[:#;,]", " ", s)
     ex = ", ".join(["weekends"] + [d.isoformat() for d in m["holidays"]])
-    out = [f"# Gantt — {m['title']}", "",
+    out = [f"# Gantt - {m['title']}", "",
            f"Tiến độ {m['pct']:.0f}% · nghiệm thu KH {m['kh_uat'][1]} · dự báo {m['fc_uat'][1]}. Bản tương tác: `gantt.html`.", "",
            "```mermaid", "gantt", f"    title {clean(m['title'])}", "    dateFormat YYYY-MM-DD", f"    excludes {ex}",
            "    todayMarker stroke-width:2px,stroke:#d33"]

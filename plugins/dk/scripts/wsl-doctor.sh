@@ -16,7 +16,7 @@ if [ "${1:-}" = "--install-launcher" ]; then
   mkdir -p "$HOME/.local/bin"
   cat > "$HOME/.local/bin/dk-remote" <<EOF
 #!/usr/bin/env bash
-# Sinh bởi dk wsl-doctor.sh — luôn gọi dk-remote.sh của bản plugin dk mới nhất đã cài.
+# Sinh bởi dk wsl-doctor.sh - luôn gọi dk-remote.sh của bản plugin dk mới nhất đã cài.
 s="\$(ls -d "\$HOME"/.claude/plugins/cache/*/dk/*/scripts/dk-remote.sh 2>/dev/null | sort -V | tail -1)"
 [ -n "\$s" ] || s="$HERE/dk-remote.sh"
 exec bash "\$s" "\$@"
@@ -31,23 +31,23 @@ case "$(uname -s)" in
   Linux)
     if grep -qi microsoft /proc/version 2>/dev/null; then
       if uname -r | grep -qi 'microsoft-standard\|WSL2'; then ok "WSL2 ($(. /etc/os-release && echo "$PRETTY_NAME"))"
-      else fail "Đang là WSL1 — chuyển sang WSL2: (PowerShell) wsl --set-version <distro> 2"; fi
+      else fail "Đang là WSL1 - chuyển sang WSL2: (PowerShell) wsl --set-version <distro> 2"; fi
       [ "$(ps -p 1 -o comm= 2>/dev/null)" = systemd ] && ok "systemd bật" \
         || warn "systemd chưa bật (Docker Engine cần): printf '[boot]\\nsystemd=true\\n' | sudo tee -a /etc/wsl.conf, rồi (PowerShell) wsl --shutdown"
     else ok "Linux"; fi ;;
-  MINGW*|MSYS*|CYGWIN*) fail "Đang chạy trên Windows ($(uname -s)) qua Git Bash/MSYS — dk hỗ trợ WSL2. Xem docs/dev/wsl-intellij.md"; ;;
+  MINGW*|MSYS*|CYGWIN*) fail "Đang chạy trên Windows ($(uname -s)) qua Git Bash/MSYS - dk hỗ trợ WSL2. Xem docs/dev/wsl-intellij.md"; ;;
   Darwin) ok "macOS" ;;
   *) warn "Hệ điều hành lạ: $(uname -s)" ;;
 esac
 mem_kb=$(awk '/MemTotal/{print $2}' /proc/meminfo 2>/dev/null || echo 0)
 [ "${mem_kb:-0}" -ge 5800000 ] && ok "RAM cho Linux: $((mem_kb / 1024 / 1024)) GB" \
-  || warn "RAM cho Linux chỉ $((mem_kb / 1024 / 1024)) GB — Testcontainers + Maven + Vite cần ≥ 6 GB (.wslconfig memory=)"
+  || warn "RAM cho Linux chỉ $((mem_kb / 1024 / 1024)) GB - Testcontainers + Maven + Vite cần ≥ 6 GB (.wslconfig memory=)"
 
 if [ -d /mnt/c ] && grep -qi microsoft /proc/version 2>/dev/null; then
   c_free_gb=$(df -BG --output=avail /mnt/c 2>/dev/null | tail -1 | tr -dc '0-9')
   if [ -n "$c_free_gb" ]; then
     if [ "$c_free_gb" -lt 15 ]; then
-      warn "Ổ C còn ${c_free_gb} GB — nếu Ubuntu nằm ở ổ C, đĩa ảo đầy sẽ hỏng (Bus error/E_FAIL). Chuyển sang ổ khác: (PowerShell Admin) .\\setup-wsl.ps1 -Drive D ; kiểm: .\\setup-wsl.ps1 -Status"
+      warn "Ổ C còn ${c_free_gb} GB - nếu Ubuntu nằm ở ổ C, đĩa ảo đầy sẽ hỏng (Bus error/E_FAIL). Chuyển sang ổ khác: (PowerShell Admin) .\\setup-wsl.ps1 -Drive D ; kiểm: .\\setup-wsl.ps1 -Status"
     else ok "Ổ C còn ${c_free_gb} GB"; fi
   fi
 fi
@@ -59,7 +59,7 @@ if root="$(git rev-parse --show-toplevel 2>/dev/null)"; then
     *) ok "Repo ở filesystem Linux: $root" ;;
   esac
   ac="$(git config core.autocrlf || echo unset)"
-  [ "$ac" = true ] && fail "git core.autocrlf=true — sẽ đổi script sang CRLF. Sửa: wsl-doctor.sh --fix" || ok "git core.autocrlf=$ac"
+  [ "$ac" = true ] && fail "git core.autocrlf=true - sẽ đổi script sang CRLF. Sửa: wsl-doctor.sh --fix" || ok "git core.autocrlf=$ac"
   if [ -d "$root/.githooks" ]; then
     [ "$(git -C "$root" config core.hooksPath)" = .githooks ] && ok "git hook của dự án đang bật (.githooks)" \
       || warn "git hook của dự án chưa bật cho clone này: git config core.hooksPath .githooks"
@@ -67,9 +67,9 @@ if root="$(git rev-parse --show-toplevel 2>/dev/null)"; then
   [ -f "$root/.gitattributes" ] && ok ".gitattributes có" || warn "Thiếu .gitattributes (golden path có mẫu ép LF cho *.sh, *.py, *.yml …)"
   crlf="$(cd "$root" && git ls-files -z -- '*.sh' '*.py' '*.yml' '*.yaml' '*.sql' '*.java' '*.ts' '*.tsx' 'mvnw' 2>/dev/null \
           | xargs -0 -r grep -lI $'\r' 2>/dev/null | head -5)"
-  [ -z "$crlf" ] && ok "Không có file nguồn CRLF" || fail "File có CRLF (script sẽ lỗi '\\r: command not found'): $(echo "$crlf" | tr '\n' ' ')— sửa: wsl-doctor.sh --fix"
+  [ -z "$crlf" ] && ok "Không có file nguồn CRLF" || fail "File có CRLF (script sẽ lỗi '\\r: command not found'): $(echo "$crlf" | tr '\n' ' ')- sửa: wsl-doctor.sh --fix"
 else
-  warn "Không ở trong repo git — bỏ qua kiểm tra repo"
+  warn "Không ở trong repo git - bỏ qua kiểm tra repo"
 fi
 
 echo "== Công cụ"
@@ -79,10 +79,10 @@ if [ -n "${root:-}" ] && [ -f "$root/.dk/stack.toml" ] && ! grep -qE 'kind[[:spa
 if [ "$PYTS" = 1 ]; then
   if have python3 && python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)'; then ok "python3 $(python3 -V | awk '{print $2}') (có tomllib)"
   else fail "Cần Python ≥ 3.11 (đọc .dk/stack.toml): sudo apt install -y python3"; fi
-  have uv && ok "uv $(uv --version | awk '{print $2}')" || warn "Thiếu uv (môi trường pipeline): curl -LsSf https://astral.sh/uv/install.sh | sh — hoặc dùng python3 -m venv + pip"
+  have uv && ok "uv $(uv --version | awk '{print $2}')" || warn "Thiếu uv (môi trường pipeline): curl -LsSf https://astral.sh/uv/install.sh | sh - hoặc dùng python3 -m venv + pip"
   if have node; then nv="$(node -v | tr -d v)"; ver_ge "$nv" 22.0.0 && ok "node $nv" || warn "node $nv < 22"
   else fail "Thiếu node 22: curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt install -y nodejs"; fi
-  case "$(command -v node 2>/dev/null)" in /mnt/[a-z]/*) fail "node đang lấy từ Windows ($(command -v node)) — cài node trong Ubuntu";; esac
+  case "$(command -v node 2>/dev/null)" in /mnt/[a-z]/*) fail "node đang lấy từ Windows ($(command -v node)) - cài node trong Ubuntu";; esac
   for d in $(python3 -c 'import tomllib,sys;print(" ".join(c["root"] for c in tomllib.load(open(sys.argv[1],"rb")).get("component",[]) if c.get("kind") in ("ts-worker","react-vite")))' "$root/.dk/stack.toml" 2>/dev/null); do
     [ -d "$root/$d/node_modules" ] && ok "$d/node_modules" || warn "Chưa cài thư viện $d: npm --prefix $d ci"
   done
@@ -100,9 +100,9 @@ if [ "$PYTS" = 0 ]; then
 { [ -x "${root:-.}/mvnw" ] && ok "Maven wrapper (./mvnw)"; } || { have mvn && ok "mvn $(mvn -v 2>/dev/null | sed -nE '1s/.* ([0-9.]+).*/\1/p')"; } || warn "Thiếu Maven: sudo apt install -y maven"
 if have node; then nv="$(node -v | tr -d v)"; ver_ge "$nv" 22.0.0 && ok "node $nv" || warn "node $nv < 22"
 else fail "Thiếu node 22: curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt install -y nodejs"; fi
-case "$(command -v node 2>/dev/null)" in /mnt/[a-z]/*) fail "node đang lấy từ Windows ($(command -v node)) — cài node trong Ubuntu";; esac
-case "$(command -v java 2>/dev/null)" in /mnt/[a-z]/*) fail "java đang lấy từ Windows — cài JDK trong Ubuntu";; esac
-case "$(command -v docker 2>/dev/null)" in /mnt/[a-z]/*) fail "docker đang lấy từ Windows ($(command -v docker)) — đó là Docker Desktop. Cài Docker Engine trong Ubuntu; vẫn ra /mnt/c thì thêm '[interop] appendWindowsPath=false' vào /etc/wsl.conf rồi (PowerShell) wsl --shutdown";; esac
+case "$(command -v node 2>/dev/null)" in /mnt/[a-z]/*) fail "node đang lấy từ Windows ($(command -v node)) - cài node trong Ubuntu";; esac
+case "$(command -v java 2>/dev/null)" in /mnt/[a-z]/*) fail "java đang lấy từ Windows - cài JDK trong Ubuntu";; esac
+case "$(command -v docker 2>/dev/null)" in /mnt/[a-z]/*) fail "docker đang lấy từ Windows ($(command -v docker)) - đó là Docker Desktop. Cài Docker Engine trong Ubuntu; vẫn ra /mnt/c thì thêm '[interop] appendWindowsPath=false' vào /etc/wsl.conf rồi (PowerShell) wsl --shutdown";; esac
 if have docker; then
   if docker info >/dev/null 2>&1; then ok "docker chạy được ($(docker version -f '{{.Server.Version}}' 2>/dev/null))"
   else fail "docker có nhưng không kết nối được daemon: sudo systemctl enable --now docker && sudo usermod -aG docker \$USER (đăng nhập lại), hoặc bật WSL integration trong Docker Desktop"; fi
@@ -123,7 +123,7 @@ for v in ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN ANTHROPIC_BASE_URL CLAUDE_CODE_U
   [ -n "${!v:-}" ] && rc_block="$rc_block $v"
 done
 [ -z "$rc_block" ] && ok "Không có biến môi trường chặn Remote Control" \
-  || warn "Biến môi trường làm Remote Control từ chối chạy:$rc_block — bỏ khỏi ~/.bashrc rồi 'claude auth login' bằng tài khoản claude.ai"
+  || warn "Biến môi trường làm Remote Control từ chối chạy:$rc_block - bỏ khỏi ~/.bashrc rồi 'claude auth login' bằng tài khoản claude.ai"
 for t in gitleaks semgrep osv-scanner k6; do have "$t" && ok "$t" || warn "Thiếu $t (kiểm tra tương ứng sẽ SKIPPED)"; done
 [ -x "$HOME/.local/bin/dk-remote" ] && ok "$HOME/.local/bin/dk-remote" || warn "Chưa có ~/.local/bin/dk-remote (cần cho tự khởi động): wsl-doctor.sh --install-launcher"
 
@@ -136,7 +136,7 @@ if [ "${1:-}" = "--fix" ] && [ -n "${root:-}" ]; then
   if [ -n "${crlf:-}" ]; then
     (cd "$root" && git ls-files -z -- '*.sh' '*.py' '*.yml' '*.yaml' '*.sql' '*.java' '*.ts' '*.tsx' 'mvnw' \
       | xargs -0 -r grep -lIZ $'\r' | xargs -0 -r sed -i 's/\r$//')
-    echo "  đã bỏ CR ở các file nguồn — kiểm tra 'git status' rồi commit nếu đúng"
+    echo "  đã bỏ CR ở các file nguồn - kiểm tra 'git status' rồi commit nếu đúng"
   fi
 fi
 

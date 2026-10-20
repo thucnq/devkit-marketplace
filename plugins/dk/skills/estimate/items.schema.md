@@ -50,7 +50,7 @@
 | `id` | Mã tính năng trong `docs/scope.md`, **không đổi về sau** (tiến độ khớp theo id). Thiếu thì tự đặt `H01`, `H02`… theo thứ tự |
 | `deps` | Danh sách `id` phải xong trước. `["*"]` = sau mọi hạng mục đứng trước nó |
 | `ac` | Tiền tố AC của tính năng (`["AC-ORDER"]`) hoặc AC cụ thể. Thiếu thì lấy các `AC-XXX` trong `desc` |
-| `risk` | `LOW` · `MEDIUM` (mặc định) · `HIGH` — tô màu trên Gantt, `/dk:review` soát kỹ hơn với HIGH |
+| `risk` | `LOW` · `MEDIUM` (mặc định) · `HIGH` - tô màu trên Gantt, `/dk:review` soát kỹ hơn với HIGH |
 | `crew` | Số kỹ sư làm song song một hạng mục (mặc định 1) |
 | `owner` | Người làm dự kiến (khớp tên trong `params.team`) |
 | `params.start_date` | Ngày bắt đầu; mặc định thứ Hai tuần sau |
@@ -60,5 +60,5 @@
 | `params.holidays` | Ngày nghỉ (`YYYY-MM-DD` hoặc `từ..đến`) **thay** cho danh sách âm lịch mặc định; 1/1, 30/4, 1/5, 2/9 luôn được tính |
 | `params.plan_optional` | `true` để đưa hạng mục tùy chọn vào lịch |
 
-- Thời lượng (ngày làm việc) = điểm × (1 + overhead) / crew, làm tròn lên — cùng công thức ngày công với báo giá.
+- Thời lượng (ngày làm việc) = điểm × (1 + overhead) / crew, làm tròn lên - cùng công thức ngày công với báo giá.
 - UAT = `uat_weeks` × 5 ngày làm việc sau hạng mục cuối.
