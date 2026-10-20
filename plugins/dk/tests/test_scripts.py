@@ -1,4 +1,4 @@
-"""Tests for deterministic scripts: dk-evidence (RED → GREEN), check-migrations, ac-trace --started-only, gen-plan."""
+"""Tests for deterministic scripts: dk-evidence (RED → GREEN), check-migrations, ac-trace --started-only, gen-plan, gen-erd."""
 import json
 import os
 import subprocess
@@ -170,6 +170,47 @@ class DeployRollbackTest(unittest.TestCase):
             self.assertTrue((host / "releases.log").read_text().strip().endswith("aaa111 rollback"))
             prod = subprocess.run(["bash", str(SCRIPTS / "deploy.sh"), "production"], cwd=r, capture_output=True, text=True)
             self.assertEqual(prod.returncode, 2)
+
+
+class GenErdTest(unittest.TestCase):
+    def _mig(self, r):
+        d = r / "worker/migrations"
+        d.mkdir(parents=True)
+        (d / "0001_init.sql").write_text("CREATE TABLE a (id TEXT PRIMARY KEY, n INTEGER NOT NULL);")
+        (d / "0002_b.sql").write_text("CREATE TABLE b (id TEXT PRIMARY KEY, a_id TEXT REFERENCES a (id));")
+        return d
+
+    def test_sequential_migrations(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            r = Path(tmp)
+            self._mig(r)
+            p = sh(r, "python3", str(SCRIPTS / "gen-erd.py"), "worker/migrations", "erd.md")
+            self.assertEqual(p.returncode, 0, p.stderr)
+            out = (r / "erd.md").read_text()
+            self.assertIn("a ||--o{ b", out)
+            self.assertIn("integer n", out)
+
+    def test_no_migrations_leaves_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            r = Path(tmp)
+            (r / "erd.md").write_text("hand drawn")
+            p = sh(r, "python3", str(SCRIPTS / "gen-erd.py"), "nowhere", "erd.md")
+            self.assertEqual(p.returncode, 1)
+            self.assertEqual((r / "erd.md").read_text(), "hand drawn")
+
+    def test_check_reports_drift(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            r = Path(tmp)
+            self._mig(r)
+            (r / "erd.md").write_text("```mermaid\nerDiagram\n  a {\n    TEXT id PK\n  }\n  c {\n    TEXT id\n  }\n```\n")
+            p = sh(r, "python3", str(SCRIPTS / "gen-erd.py"), "--check", "worker/migrations", "erd.md")
+            self.assertEqual(p.returncode, 1)
+            self.assertIn("`a` thiếu cột `n`", p.stdout)
+            self.assertIn("thiếu bảng `b`", p.stdout)
+            self.assertIn("bảng `c` không có trong migrations", p.stdout)
+            (r / "erd.md").write_text("  a {\n    TEXT id PK\n    INTEGER n\n  }\n  b {\n    TEXT id\n    TEXT a_id FK\n  }\n")
+            p = sh(r, "python3", str(SCRIPTS / "gen-erd.py"), "--check", "worker/migrations", "erd.md")
+            self.assertEqual(p.returncode, 0, p.stdout)
 
 
 if __name__ == "__main__":
