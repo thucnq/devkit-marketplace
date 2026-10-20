@@ -1,6 +1,6 @@
 # goldenpath
 
-Project built on the dk golden path `py-ts-cloudflare`. Docs and UI text in Vietnamese; code and identifiers in English.
+Project built on the dk golden path `py-ts-cloudflare`. Docs and UI text in Vietnamese; code and identifiers in English. Never use the em dash `—` in any text (docs, UI, commits, PRs); write a plain hyphen `-` instead.
 Stack profile: `.dk/stack.toml` (components pipeline / web / worker — dk reads it for checks, test filters and agent scope).
 
 ## Workflow (dk plugin ≥ 0.7.0)

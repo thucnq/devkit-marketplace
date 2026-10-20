@@ -1,6 +1,6 @@
 # goldenpath
 
-Freelance project built on the dk golden path. Docs and UI text in Vietnamese; code and identifiers in English.
+Freelance project built on the dk golden path. Docs and UI text in Vietnamese; code and identifiers in English. Never use the em dash `—` in any text (docs, UI, commits, PRs); write a plain hyphen `-` instead.
 
 ## Workflow (dk plugin)
 /dk:spec (đề xuất phạm vi) → chốt docs/scope.md → /dk:spec → /dk:approve spec → /dk:estimate → /dk:plan → /dk:design → /dk:approve contract → /dk:build <feature> → /dk:review → human merges → /dk:ship

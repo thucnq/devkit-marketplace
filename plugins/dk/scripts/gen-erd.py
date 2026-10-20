@@ -75,7 +75,7 @@ KEYWORDS = ("constraint", "primary", "foreign", "unique", "check", "exclude", "l
 
 FILES = migration_files()
 if not FILES:
-    print(f"gen-erd: không thấy migration nào trong {MIG} (V<n>__*.sql hoặc NNNN_*.sql) — {OUT} giữ nguyên",
+    print(f"gen-erd: không thấy migration nào trong {MIG} (V<n>__*.sql hoặc NNNN_*.sql) - {OUT} giữ nguyên",
           file=sys.stderr)
     sys.exit(1)
 
@@ -160,7 +160,7 @@ if CHECK:
     sys.exit(1 if drift else 0)
 
 lines = ["# Sơ đồ cơ sở dữ liệu", "",
-         "> Sinh tự động từ SQL migrations bằng `gen-erd.sh` — không sửa tay.", "",
+         "> Sinh tự động từ SQL migrations bằng `gen-erd.sh` - không sửa tay.", "",
          "```mermaid", "erDiagram"]
 for t in sorted(tables):
     lines.append(f"    {t} {{")
