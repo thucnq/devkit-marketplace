@@ -121,6 +121,25 @@ class TraceAndPlanTest(unittest.TestCase):
         self.assertIn("not started", out.stdout)
         self.assertNotIn("AC-ND-01", out.stdout.split("not started")[0])
 
+    def test_started_only_planned_items(self):
+        """An AC added to a started file but scheduled by exact id under an unstarted item is not enforced yet."""
+        tr = str(SCRIPTS / "ac-trace.py")
+        (self.r / "backend/src/test/java/T.java").write_text("// AC-CTY-01 AC-ND-01\n")
+        (self.r / "docs/estimate").mkdir(parents=True)
+        items = {"items": [{"id": "CTY", "ac": ["AC-CTY-01"]}, {"id": "CTY2", "ac": ["AC-CTY-01", "AC-CTY-02"]}]}
+        (self.r / "docs/estimate/items.json").write_text(json.dumps(items))
+        out = sh(self.r, "python3", tr, "--started-only")
+        self.assertEqual(out.returncode, 0, out.stdout)           # AC-CTY-01 is shared, so CTY2 has not started
+        self.assertIn("planned (not enforced yet): AC-CTY-02 (CTY2)", out.stdout)
+        self.assertEqual(sh(self.r, "python3", tr).returncode, 1)  # /dk:review still needs every AC
+        items["items"][1]["ac"].append("AC-ND-01")                 # an AC only CTY2 lists is tested ⇒ started
+        (self.r / "docs/estimate/items.json").write_text(json.dumps(items))
+        out = sh(self.r, "python3", tr, "--started-only")
+        self.assertEqual(out.returncode, 1)
+        self.assertIn("MISSING AC-CTY-02", out.stdout)
+        (self.r / "docs/estimate/items.json").write_text(json.dumps({"items": [{"id": "CTY", "ac": ["AC-CTY"]}]}))
+        self.assertEqual(sh(self.r, "python3", tr, "--started-only").returncode, 1)  # prefix does not schedule
+
     def test_gen_plan(self):
         (self.r / "docs/estimate").mkdir(parents=True)
         (self.r / "docs/estimate/items.json").write_text(json.dumps({

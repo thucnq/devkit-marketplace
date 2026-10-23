@@ -83,6 +83,10 @@ Sau dự án: chạy `/dk:retro`, rồi mang `*-retro.md` + `*-metrics.json` và
 
 Đo thử trên brief "báo cáo vân tay" (Sonnet, tính theo giá API để so sánh): `/dk:spec` 9 lượt ≈ $0.77, `/dk:estimate` 6 lượt ≈ $0.27.
 
+## Thay đổi v0.7.2
+- `ac-trace.py --started-only` (cổng CI): AC thêm sau vào file nghiệm thu đã bắt đầu mà `docs/estimate/items.json` ghi id cụ thể chỉ dưới hạng mục chưa bắt đầu thì báo `planned (not enforced yet)`, không làm đỏ CI. Hạng mục coi là đã bắt đầu khi có AC chỉ riêng nó ghi id cụ thể đã có test; tiền tố như `AC-ART` không tính là lịch. `/dk:review` và `/dk:ship` vẫn đòi đủ mọi AC. Dự án cũ: chép lại `templates/<stack>/tools/ac-trace.py` vào `tools/`.
+- `ac-trace.py` chạy được trên Windows (không có `SIGPIPE`).
+
 ## Thay đổi v0.7.1
 - `dk-state.sh require`: sửa lỗi thoát mã 1 khi spec không đổi sau khi duyệt (làm `/dk:design`, `/dk:build` dừng dù cổng đã duyệt) và lỗi cú pháp thiếu `fi` của bản vá trước.
 
