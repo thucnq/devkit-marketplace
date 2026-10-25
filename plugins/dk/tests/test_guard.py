@@ -70,6 +70,9 @@ class GuardTest(unittest.TestCase):
             "ssh deploy@prod.khach.vn", "bash scripts/dk-state.sh approve spec", "git commit --no-verify -m x",
             "rm -rf /", "sed -i 's/a/b/' frontend/eslint.config.js", "echo '{}' > .gitleaks.toml",
             "cp /tmp/x .gitleaks.toml",
+            'while pgrep -f "pytest -q --junitxml|vitest run" >/dev/null; do sleep 5; done; tail x.log',
+            'until ! pgrep -f "dk-check.sh full" >/dev/null; do sleep 5; done',
+            "while pgrep -af vitest; do sleep 2; done",
         ]:
             with self.subTest(cmd=cmd):
                 self.assertEqual(self.bash(cmd), 2)
@@ -81,6 +84,7 @@ class GuardTest(unittest.TestCase):
             "cat > /tmp/pr.md <<'EOF'\nKhông git push origin main, không gh pr merge.\nEOF",
             "echo 'nhắc: gh pr merge do người làm'", "./deploy.sh staging", "ls frontend/eslint.config.js",
             "cat .gitleaks.toml",
+            "pgrep -af vitest | head", "pgrep -f pytest; echo done", 'echo "until pgrep -f x"',
         ]:
             with self.subTest(cmd=cmd):
                 self.assertEqual(self.bash(cmd), 0)

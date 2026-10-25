@@ -1,7 +1,7 @@
 {
   "name": "dk",
   "displayName": "Delivery Kit",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "description": "Delivery workflow for Java 21/Spring Boot + Postgres + React and Python/TypeScript on Cloudflare: Vietnamese docs-as-code, test-first build, independent review, zero-token quality gates.",
   "author": {
     "name": "Nguyen Quy Thuc",

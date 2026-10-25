@@ -175,6 +175,12 @@ def check_bash(cmd: str, root: Path) -> None:
                     ["git", "ls-files", "--error-unmatch", r], cwd=root, capture_output=True).returncode == 0:
                 block(f"{r} đã commit - không sửa migration cũ. Tạo file V<yyyyMMddHHmm>__*.sql mới.", "migration_edit")
 
+    # 0c. A wait loop on `pgrep -f` matches its own `bash -c` command line and never ends (lau-meme 2026-10-25: a RED
+    # that took 1.5 min left the user waiting 5 hours). Background the command itself and wait for its notification.
+    if re.search(r"\b(until|while)\b[^;]*\bpgrep\b[^;|]*\s-\w*f", flat):
+        block("Vòng chờ `until/while ... pgrep -f` khớp với chính dòng lệnh của nó nên không bao giờ dừng. Chạy thẳng lệnh "
+              "test/check với run_in_background và chờ thông báo khi nó xong (mỗi thành phần một lệnh nền).", "pgrep_wait")
+
     # 1. Secrets never enter the model's context.
     if is_secret(full):
         block("Lệnh chạm vào file bí mật (.env, deploy/envs/*.env, khóa). Dùng file *.example, "
