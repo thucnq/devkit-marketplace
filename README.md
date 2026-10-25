@@ -83,6 +83,9 @@ Sau dự án: chạy `/dk:retro`, rồi mang `*-retro.md` + `*-metrics.json` và
 
 Đo thử trên brief "báo cáo vân tay" (Sonnet, tính theo giá API để so sánh): `/dk:spec` 9 lượt ≈ $0.77, `/dk:estimate` 6 lượt ≈ $0.27.
 
+## Thay đổi v0.7.4
+- Task nền chạy quá 10 phút phải được đánh giá lại, không được lặng lẽ chờ tiếp. Agent kiểm tiến trình còn sống không, output còn tăng không, lần trước lệnh đó mất bao lâu, rồi báo người dùng một dòng: vẫn chạy bình thường (dự kiến xong lúc nào) hoặc bị treo (dừng, chạy lại hẹp hơn). Quy tắc nằm trong `/dk:build`, `/dk:review`, `/dk:ship` và `CLAUDE.md` mẫu của hai golden path. Dự án cũ: chép dòng "Background tasks" trong `templates/<stack>/CLAUDE.md` vào `CLAUDE.md` của dự án.
+
 ## Thay đổi v0.7.3
 - Guard chặn vòng chờ `until/while ... pgrep -f ...` (luật `pgrep_wait`): `pgrep -f` khớp với chính dòng lệnh `bash -c` của vòng lặp nên vòng không bao giờ dừng. Ở lau-meme, một lần RED chạy 1,5 phút đã để người dùng chờ 5 giờ. `/dk:build` và `/dk:review` hướng dẫn chạy thẳng lệnh test/check ở chế độ nền và chờ thông báo.
 

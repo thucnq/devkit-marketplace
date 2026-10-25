@@ -26,3 +26,4 @@ Gates are enforced by hooks; state lives in `.dk/state.md` (edit only via dk-sta
 - Fix the code, never the gate: quality configs (eslint, tsconfig, SpotBugs/PMD, gitleaks, CI workflows, ArchitectureTest, coverage thresholds) and suppressions (`@Disabled`, `NOPMD`, `@ts-ignore`, `eslint-disable`, `nosemgrep`, `.skip`) are blocked by the guard hook - stop and ask the human.
 - Git hooks live in `.githooks/` (`git config core.hooksPath .githooks`); never bypass them.
 - Build evidence: RED before implementing, GREEN after (`dk-evidence.py`, `.dk/evidence/<feature>.json` is committed).
+- Background tasks (tests, checks, deploys): run the command itself in the background and wait for its notification, never an `until/while pgrep -f` loop. One running over 10 minutes is re-evaluated: is the process alive, is output growing, how long did it take last time - tell the human, stop and re-run narrower if stuck.
