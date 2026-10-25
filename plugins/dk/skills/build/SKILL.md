@@ -28,4 +28,6 @@ With a stack profile (lines above: `<component>  <dir>  <command>`), **replace e
 6. Commit in small logical commits (`test($feature): …` for the RED tests, then `feat($feature): …`), including `.dk/evidence/$feature.json`. Do not push.
 7. Reply in Vietnamese, max 6 lines: ACs passing x/y, files changed, anything deferred. Suggest `/dk:review` next.
 
+Waiting on long commands (tests, `dk-check.sh`): run the command itself with `run_in_background: true` (one background command per component when running them in parallel) and wait for its completion notification. Never poll with `until/while pgrep -f ...` - it matches its own command line and spins forever (the guard blocks it); never start jobs with `&` inside a pipe and `wait` outside it.
+
 Token discipline: don't re-read files you already have in context; use Grep to locate before Read; never cat build logs whole.

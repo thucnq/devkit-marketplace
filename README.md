@@ -83,6 +83,9 @@ Sau dự án: chạy `/dk:retro`, rồi mang `*-retro.md` + `*-metrics.json` và
 
 Đo thử trên brief "báo cáo vân tay" (Sonnet, tính theo giá API để so sánh): `/dk:spec` 9 lượt ≈ $0.77, `/dk:estimate` 6 lượt ≈ $0.27.
 
+## Thay đổi v0.7.3
+- Guard chặn vòng chờ `until/while ... pgrep -f ...` (luật `pgrep_wait`): `pgrep -f` khớp với chính dòng lệnh `bash -c` của vòng lặp nên vòng không bao giờ dừng. Ở lau-meme, một lần RED chạy 1,5 phút đã để người dùng chờ 5 giờ. `/dk:build` và `/dk:review` hướng dẫn chạy thẳng lệnh test/check ở chế độ nền và chờ thông báo.
+
 ## Thay đổi v0.7.2
 - `ac-trace.py --started-only` (cổng CI): AC thêm sau vào file nghiệm thu đã bắt đầu mà `docs/estimate/items.json` ghi id cụ thể chỉ dưới hạng mục chưa bắt đầu thì báo `planned (not enforced yet)`, không làm đỏ CI. Hạng mục coi là đã bắt đầu khi có AC chỉ riêng nó ghi id cụ thể đã có test; tiền tố như `AC-ART` không tính là lịch. `/dk:review` và `/dk:ship` vẫn đòi đủ mọi AC. Dự án cũ: chép lại `templates/<stack>/tools/ac-trace.py` vào `tools/`.
 - `ac-trace.py` chạy được trên Windows (không có `SIGPIPE`).
