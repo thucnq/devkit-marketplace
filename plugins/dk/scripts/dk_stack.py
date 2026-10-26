@@ -123,6 +123,12 @@ class Component:
         name = rel.rsplit("/", 1)[-1]
         return any(Path(name).match(p) for p in self.test_patterns)
 
+    def is_test_support(self, rel: str) -> bool:
+        """Test files plus test setup that lives next to the code (web/src/test/setup.ts, __mocks__/, test-utils)."""
+        dirs = _norm(rel).split("/")[:-1]
+        return (self.is_test_file(rel) or "test-utils" in rel
+                or any(d in ("test", "tests", "__tests__", "__mocks__", "__fixtures__") for d in dirs))
+
     def in_dirs(self, rel: str, dirs) -> bool:
         rel = _norm(rel)
         return any(rel == d or rel.startswith(d + "/") for d in dirs)
@@ -146,7 +152,7 @@ class Stack:
         for c in self.components:
             if c.in_dirs(rel, c.src_dirs):
                 # tests that live next to the code (web/src/**/*.test.tsx) are not production code
-                return not (c.is_test_file(rel) or "test-utils" in rel or "/__fixtures__/" in rel)
+                return not c.is_test_support(rel)
         return False
 
     def source_roots(self):
@@ -164,7 +170,7 @@ class Stack:
         for c in self.components:
             if c.in_dirs(rel, c.test_dirs):
                 if c.in_dirs(rel, c.src_dirs):  # tests live next to code: only test files
-                    return c.is_test_file(rel) or "test-utils" in rel
+                    return c.is_test_support(rel)
                 return True
         return False
 

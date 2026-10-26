@@ -10,6 +10,8 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     css: false,
+    // jsdom renders of a whole screen exceed the 5 s default on WSL when other suites run beside it (lau-meme 2026-10).
+    testTimeout: 30_000,
     coverage: { provider: 'istanbul', include: ['src/**'], exclude: ['src/main.tsx', 'src/test/**'], thresholds: { lines: 70 } },
   },
 })

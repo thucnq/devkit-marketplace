@@ -15,14 +15,18 @@ LOG_DIR = Path(".dk/log")
 OUT = Path(sys.argv[1] if len(sys.argv) > 1 else ".dk/retro")
 
 
+BAD_LINES = [0]  # lines that are not JSON: two writers on one line, NUL runs after a checkout rewrote the file
+
+
 def load():
     events = []
     for f in sorted(LOG_DIR.glob("*.jsonl")):
         author = f.stem
-        for line in f.read_text(encoding="utf-8").splitlines():
+        for line in f.read_text(encoding="utf-8", errors="replace").splitlines():
             try:
                 e = json.loads(line)
             except Exception:
+                BAD_LINES[0] += bool(line.strip("\x00 \t"))
                 continue
             e["author"] = author
             events.append(e)
@@ -65,7 +69,8 @@ def main():
     prompts_by_cmd = Counter()
     tools = Counter()
     tool_fail = Counter()
-    fail_samples = defaultdict(list)
+    fail_samples = Counter()
+    blocked_agent = Counter()
     blocked = Counter()
     checks = defaultdict(Counter)
     check_fail_names = Counter()
@@ -108,14 +113,16 @@ def main():
             tools[e.get("tool")] += 1
             if e.get("tool") in ("Edit", "Write", "MultiEdit") and e.get("target"):
                 edited[e["target"]] += 1
-            if e.get("tool") == "Bash" and re.search(r"\b(mvnw?|npm|vitest)\b.*\btest\b", e.get("target") or ""):
+            if e.get("tool") == "Bash" and re.search(r"\b(mvnw?|npm|vitest)\b.*\btest\b|\bpytest\b", e.get("target") or ""):
                 test_runs[feat or "-"] += 1
         elif t == "tool_fail":
             tool_fail[e.get("tool")] += 1
-            if len(fail_samples[e.get("tool")]) < 3:
-                fail_samples[e.get("tool")].append(e.get("error", "")[:140])
+            err = re.sub(r"\s+", " ", e.get("error") or "")
+            fail_samples[(e.get("tool"), re.sub(r"\d+", "N", err[:70]))] += 1
         elif t == "blocked":
             blocked[e.get("rule")] += 1
+            if e.get("agent"):
+                blocked_agent[(e["agent"], e.get("rule"))] += 1
         elif t == "check":
             checks[e.get("mode")][e.get("result")] += 1
             for n in filter(None, (e.get("failed") or "").split(";")):
@@ -207,9 +214,13 @@ def main():
     L.append("- Câu trả lời có dấu hiệu bỏ dở (lỗi có sẵn, flaky, bỏ qua test, để sau…): "
              + (", ".join(f"{k} ({c})" for k, c in excuses.most_common()) or "không có"))
     L.append(f"- Nhắc /compact vì ngữ cảnh lớn: {context_high} lần")
-    for t, samples in fail_samples.items():
-        for s in samples:
-            L.append(f"  - {t}: `{s}`")
+    if blocked_agent:
+        L.append("- Hook chặn subagent: " + ", ".join(f"{a}/{r} ({c})" for (a, r), c in blocked_agent.most_common()))
+    if fail_samples:
+        L.append("- Lỗi tool hay gặp nhất:")
+        L += [f"  - {t} ×{c}: `{m}`" for (t, m), c in fail_samples.most_common(6)]
+    if BAD_LINES[0]:
+        L.append(f"- Dòng log không đọc được (bỏ qua): {BAD_LINES[0]}")
     if gates:
         L += ["", "## Cổng duyệt", "", "| Ngày | Cổng | Commit | Người duyệt |", "|---|---|---|---|"]
         L += [f"| {d} | {g} | {r} | {a} |" for d, g, r, a in gates]

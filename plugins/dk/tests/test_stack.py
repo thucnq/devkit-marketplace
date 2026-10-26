@@ -185,6 +185,23 @@ class CheckWithProfileTest(unittest.TestCase):
         self.assertEqual(r.returncode, 1)
         self.assertIn("| pipeline lint | **FAIL** |", r.stdout)
 
+    def test_full_traces_feature_and_started_ones(self):
+        """Specced-but-unbuilt features (tests on other branches) do not fail /dk:review; the branch's own feature does."""
+        acc = self.root / "docs/acceptance"
+        acc.joinpath("graph.md").write_text("### AC-GRAPH-01: a\n### AC-GRAPH-02: b\n")
+        acc.joinpath("metric.md").write_text("### AC-METRIC-01: a\n")
+        (self.root / ".dk/state.md").write_text("phase: build\nfeature: graph\n")
+        (self.root / "pipeline/tests/test_graph.py").write_text('def test_ac_graph_01_x():\n    """AC-GRAPH-01: x"""\n')
+        r = self.check("full")
+        self.assertIn("| AC traceability (graph) | **FAIL** |", r.stdout)       # AC-GRAPH-02 has no test
+        self.assertIn("| AC traceability (started features) | **FAIL** |", r.stdout)
+        (self.root / "pipeline/tests/test_graph.py").write_text(
+            'def test_ac_graph_01_x():\n    """AC-GRAPH-01: x"""\n\n\ndef test_ac_graph_02_y():\n    """AC-GRAPH-02: y"""\n')
+        r = self.check("full")
+        self.assertIn("| AC traceability (graph) | PASS |", r.stdout)
+        self.assertIn("| AC traceability (started features) | PASS |", r.stdout)  # METRIC not started: reported only
+        self.assertNotIn("AC traceability (all)", r.stdout)
+
     def test_broken_profile_fails(self):
         (self.root / ".dk/stack.toml").write_text("schema = 2\n")
         git(self.root, "add", "-A")
@@ -280,6 +297,98 @@ class GuardProfileTest(unittest.TestCase):
         # Java layout is NOT what this profile protects
         self.assertEqual(self.agent("test-author", "file", "Write",
                                     {"file_path": R("backend/src/test/java/A.java"), "content": "x"}), 2)
+
+    def test_test_author_may_run_tests(self):
+        """lau-meme 2026-10: 188 of 195 agent_blind blocks hit commands that read no production code."""
+        ok = [
+            f"cd {self.root} && npm --prefix worker run test -- --run 2>&1 | tail -80",
+            "cd worker && npx vitest run test/graph.test.ts 2>&1 | tail -30",
+            "uv run --directory pipeline pytest -q tests/test_graph.py 2>&1 | tail -15",
+            "npm --prefix web run -s typecheck 2>&1 | head -20",
+            "mkdir -p web/src/share && cat > web/src/share/share.test.tsx <<'EOF'\nit('AC-SHARE-01: x', () => {})\nEOF",
+            "ls web/src web/src/daily worker/test",
+            "python3 - <<'EOF'\np = 'worker/test/a.test.ts'\ns = open(p).read()\nprint(s.replace('a', 'b'))\nEOF",
+            "grep -rn AC-GRAPH worker/test pipeline/tests docs",
+            "awk 'length > 120 {print FILENAME\": \"FNR}' pipeline/tests/test_graph.py",
+            # a grep/sed pattern is not a path
+            'grep -n "pipeline" docs/api/openapi.yaml | head -50',
+            "cd web/src && npm --prefix .. run test -- --run subpath 2>&1 | grep -v '^$' | head -80",
+            "cd web/src && sed -n 1,120p daily/daily.ui.test.tsx",
+            # listing / searching only test files
+            "find web/src worker/test -name '*.test.*' -o -name 'test-utils*'",
+            f"cd {self.root}/web && find . -name '*.test.*' -not -path './node_modules/*'",
+            "grep -rln consent web/src --include=*.test.tsx --include=*.test.ts",
+            "wc -l web/src/daily/*.test.tsx",
+            # edits of test files after cd, with ; inside the quoted sed script
+            "cd worker/test; sed -i '/^let n = 0$/d;/^  n++$/d' auth.test.ts; grep -n n auth.test.ts",
+            "cd pipeline/tests && cat >> test_graph.py <<'E'\ndef test_ac_graph_09_x():\n    pass\nE",
+            "python3 - <<'EOF'\ns = open('web/src/art/art.test.tsx').read()\ni = s.index('x')\nEOF",
+        ]
+        for cmd in ok:
+            with self.subTest(cmd=cmd):
+                self.assertEqual(self.agent("test-author", "bash", "Bash", {"command": cmd}), 0)
+        blocked = [
+            "grep -rln x docs worker/test web/src",
+            "cat web/src/App.tsx",
+            "cd web/src && cat App.tsx",
+            "head -40 worker/src/*.ts",
+            "grep -rn x .",
+            "python3 - <<'EOF'\nprint(open('worker/src/index.ts').read())\nEOF",
+            "cd web/src; ls daily; grep -n -i daily App.tsx",
+            "find web/src -name '*.tsx'",
+            "grep -rn fetch web/src --include=*.tsx",
+            "cd worker/test && sed -i 's/a/b/' ../src/index.ts",
+        ]
+        for cmd in blocked:
+            with self.subTest(cmd=cmd):
+                self.assertEqual(self.agent("test-author", "bash", "Bash", {"command": cmd}), 2)
+
+    def test_test_author_test_infra_inside_src(self):
+        """web/src/test/setup.ts is test setup, not production code (blocked 5 times in lau-meme)."""
+        self.assertEqual(self.agent("test-author", "file", "Read", {"file_path": str(self.root / "web/src/test/setup.ts")}), 0)
+        self.assertEqual(self.agent("test-author", "file", "Write",
+                                    {"file_path": str(self.root / "web/src/test/fixtures.ts"), "content": "x"}), 0)
+        self.assertEqual(self.agent("test-author", "file", "Read", {"file_path": str(self.root / "web/src/testing.ts")}), 2)
+
+    def test_agents_in_a_worktree(self):
+        """Paths in a linked worktree are matched relative to that worktree, not the main checkout."""
+        with tempfile.TemporaryDirectory() as d:
+            wt = Path(d) / "wt"
+            git(self.root, "worktree", "add", "-q", "-b", "feat/wt", str(wt))
+            try:
+                self.assertEqual(self.agent("test-author", "file", "Write",
+                                            {"file_path": str(wt / "worker/test/a.test.ts"), "content": "x"}), 0)
+                self.assertEqual(self.agent("test-author", "file", "Read",
+                                            {"file_path": str(wt / "worker/src/index.ts")}), 2)
+                self.assertEqual(self.agent("test-author", "file", "Write",
+                                            {"file_path": str(wt / "worker/src/index.ts"), "content": "x"}), 2)
+            finally:
+                git(self.root, "worktree", "remove", "--force", str(wt))
+        nested = self.root / ".claude/worktrees/touch"
+        git(self.root, "worktree", "add", "-q", "-b", "feat/touch", str(nested))
+        try:
+            self.assertEqual(self.agent("test-author", "file", "Write",
+                                        {"file_path": str(nested / "web/src/game/touch.ui.test.tsx"), "content": "x"}), 0)
+            self.assertEqual(self.agent("test-author", "file", "Read", {"file_path": str(nested / "web/src/App.tsx")}), 2)
+        finally:
+            git(self.root, "worktree", "remove", "--force", str(nested))
+
+    def test_redirect_parsing(self):
+        """`>` inside quoted awk/python text is not a file write (blocked 6 times in lau-meme)."""
+        self.assertEqual(self.agent("reviewer", "bash", "Bash",
+                                    {"command": "awk '$2 >= 3 {print $1}' .dk/check-report.md"}), 0)
+        self.assertEqual(self.agent("reviewer", "bash", "Bash",
+                                    {"command": "python3 - <<'EOF'\nif len(x) > 120: print(x)\nEOF"}), 0)
+        self.assertEqual(self.agent("reviewer", "bash", "Bash",
+                                    {"command": 'grep -rniE "ignore (all )?previous|>>|api[_-]?key" web/src | head'}), 0)
+        self.assertEqual(self.agent("doc-sync", "bash", "Bash",
+                                    {"command": "S=/tmp/claude-1000/x; git show HEAD:docs/db/erd.md > \"$S/erd.md\""}), 0)
+        self.assertEqual(self.agent("doc-sync", "bash", "Bash",
+                                    {"command": "git show HEAD:docs/a.md > /tmp/../tmp/a.md"}), 0)
+        self.assertEqual(self.agent("reviewer", "bash", "Bash", {"command": "cd worker && echo x > src/a.ts"}), 2)
+        self.assertEqual(self.agent("reviewer", "bash", "Bash", {"command": "echo x > worker/src/a.ts"}), 2)
+        self.assertEqual(self.agent("reviewer", "bash", "Bash",
+                                    {"command": "cat > worker/src/a.ts <<'EOF'\nx\nEOF"}), 2)
 
     def test_python_suppressions(self):
         p = str(self.root / "pipeline/src/pkg/graph.py")

@@ -13,6 +13,8 @@ export default defineConfig(async () => {
     ],
     test: {
       setupFiles: ['./test/apply-migrations.ts'],
+      // Miniflare D1 costs ~66 ms per query on WSL: the 5 s default timed out 110 times in lau-meme (2026-10).
+      testTimeout: 30_000,
       coverage: { provider: 'istanbul' as const, include: ['src/**'], thresholds: { lines: 80 } },
     },
   }
