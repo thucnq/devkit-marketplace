@@ -97,7 +97,17 @@ fi
 TRACE="$HERE/ac-trace.py"; [ -f tools/ac-trace.py ] && TRACE="tools/ac-trace.py"
 if [ -d docs/acceptance ] && [ "${MODE#precommit}" = "$MODE" ]; then
   feat="$(grep -E '^feature:' .dk/state.md 2>/dev/null | sed 's/feature:[[:space:]]*//')"
-  if [ "$MODE" = quick ] && [ -n "$feat" ]; then
+  if [ "$PROFILE" = 1 ]; then
+    # Stack profile: the branch's feature in full + every started feature, the same rule as CI (--started-only).
+    # Features specced on main but built on other branches have no tests on this branch yet; enforcing them failed
+    # /dk:review 29 of 31 times in lau-meme (2026-10) and taught agents to ignore the row.
+    if [ -n "$feat" ]; then
+      run "AC traceability ($feat)" python3 "$TRACE" --feature "$feat"
+    fi
+    if [ "$MODE" = full ] || [ -z "$feat" ]; then
+      run "AC traceability (started features)" python3 "$TRACE" --started-only
+    fi
+  elif [ "$MODE" = quick ] && [ -n "$feat" ]; then
     run "AC traceability ($feat)" python3 "$TRACE" --feature "$feat"
   else
     run "AC traceability (all)" python3 "$TRACE"

@@ -62,7 +62,8 @@ def block(msg: str, rule: str = "other") -> None:
     try:
         sys.path.insert(0, str(Path(__file__).resolve().parent))
         from dk_event import emit, project_root
-        emit(project_root(_CTX.get("cwd")), {"ev": "blocked", "rule": rule, "tool": _CTX.get("tool")})
+        emit(project_root(_CTX.get("cwd")), {"ev": "blocked", "rule": rule, "tool": _CTX.get("tool"),
+                                            "agent": _CTX.get("agent")})
     except Exception:
         pass
     print(f"[dk guard] {msg}", file=sys.stderr)
@@ -115,6 +116,7 @@ HEREDOC = re.compile(r"(?P<head>[^\n]*)<<-?\s*(['\"]?)(?P<tag>\w+)\2[^\n]*\n.*?\
 TEXT_ARG = re.compile(r"""(?P<lead>(?:\s(?:-m|--message|--body|--title|--notes|--subject|-t|-b)(?:=|\s+)|\b(?:echo|printf)\s+(?:-\w+\s+)*))"""
                       r"""(?P<q>'[^']*'|"(?:[^"\\]|\\.)*")""")
 SHELLS = re.compile(r"\b(?:bash|sh|zsh|ssh|python3?|node|eval)\b")
+SHELLS_ONLY = re.compile(r"\b(?:bash|sh|zsh|ssh|eval)\b")
 
 
 def code_only(cmd: str) -> str:
@@ -128,26 +130,93 @@ def code_only(cmd: str) -> str:
     return " ".join(s.split())
 
 
+SEPARATORS = re.compile(r"[;&|()\n]+")
+REDIRECTS = {">", ">>", ">|", "&>", "&>>"}
+
+
+def shell_segments(cmd: str):
+    """(cwd, words, redirect targets) per simple command, split the way the shell does: quotes respected (a `;` or `>`
+    inside 's/a/b/; s/c/d/' or awk '$2 >= 3' is text), `cd DIR` followed (cwd is relative to the project, "." at
+    start), `NAME=value` assignments substituted into later $NAME / ${NAME}. Heredoc bodies fed to anything but a shell
+    are dropped. Best effort: unbalanced quotes fall back to whitespace splitting."""
+    text = HEREDOC.sub(lambda m: m.group(0) if SHELLS_ONLY.search(m.group("head")) else m.group("head"), cmd)
+    cwd, env = ".", {}
+
+    def expand(w):
+        return re.sub(r"\$\{?(\w+)\}?", lambda m: env.get(m.group(1), m.group(0)), w)
+
+    try:  # a newline outside quotes ends a command; inside python -c "..." it does not
+        lex = shlex.shlex(text, posix=True, punctuation_chars="();<>|&\n")
+        lex.whitespace, lex.commenters, lex.whitespace_split = " \t\r", "", True
+        toks = list(lex)
+    except ValueError:
+        toks = [t for line in text.split("\n") for t in line.split() + [";"]]
+    seg = []
+    for t in toks + [";"]:
+        if not SEPARATORS.fullmatch(t):
+            seg.append(t)
+            continue
+        words, targets, i = [], [], 0
+        while i < len(seg):
+            w, nxt = seg[i], seg[i + 1] if i + 1 < len(seg) else ""
+            if w.isdigit() and nxt[:1] in "<>":
+                i += 1  # the fd of 2>/dev/null
+            elif w in REDIRECTS:
+                targets.append(expand(nxt))
+                i += 2
+            elif w in ("<", "<<", "<<<", ">&", "<&", "<<-"):
+                i += 2
+            else:
+                words.append(w)
+                i += 1
+        seg = []
+        while words and re.fullmatch(r"\w+=\S*", words[0]):
+            k, v = words.pop(0).split("=", 1)
+            env[k] = expand(v)
+        while words and words[0] in ("sudo", "env", "command", "time", "xargs", "exec"):
+            words = words[1:]
+        words = [expand(w) for w in words]
+        if words and Path(words[0]).name in ("cd", "pushd") and len(words) > 1 and "$" not in words[1]:
+            cwd = os.path.normpath(os.path.join(cwd, words[1]))
+        yield cwd, words, [x for x in targets if x]
+
+
+def git_push_forced(cmd: str) -> bool:
+    """`git push` run with --force / -f, looking only at that command's own words (also inside bash -c "...")."""
+    for _, words, _ in shell_segments(cmd):
+        if len(words) > 2 and Path(words[0]).name in ("bash", "sh", "zsh") and words[1] == "-c" and git_push_forced(words[2]):
+            return True
+        if words and Path(words[0]).name == "git" and "push" in words:
+            if any(w == "--force" or re.fullmatch(r"-[a-z]*f[a-z]*", w) for w in words[words.index("push") + 1:]):
+                return True
+    return False
+
+
+def in_cwd(cwd: str, path: str) -> str:
+    """A path as written in a command run from `cwd` (relative to the project), as the project sees it."""
+    if os.path.isabs(path) or cwd == "." or path.startswith("~"):
+        return path
+    return os.path.normpath(os.path.join(cwd, path))
+
+
 def shell_write_targets(cmd: str) -> list:
     """Paths a shell command may write: redirection targets, sed -i files, tee args, cp/mv/install destination."""
-    out = re.findall(r">>?\s*['\"]?([^\s;&|'\"]+)", cmd)
-    for seg in re.split(r"\|\||&&|[;|\n]", cmd):
-        try:
-            words = shlex.split(seg)
-        except ValueError:
-            words = seg.split()
-        while words and re.fullmatch(r"\w+=\S*|sudo|env|command", words[0]):
-            words = words[1:]
+    out = []
+    for cwd, words, targets in shell_segments(cmd):
+        out += [in_cwd(cwd, t) for t in targets]
         if not words:
             continue
-        name, args = Path(words[0]).name, [w for w in words[1:]]
+        name, args = Path(words[0]).name, words[1:]
         files = [w for w in args if not w.startswith("-")]
         if name == "sed" and any(w.startswith("-i") or w == "--in-place" for w in args):
-            out += files[1:] if not any(w in ("-e", "-f") for w in args) else files
+            hit = files[1:] if not any(w in ("-e", "-f") for w in args) else files
         elif name == "tee":
-            out += files
+            hit = files
         elif name in ("cp", "mv", "install", "ln", "truncate", "rm") and files:
-            out += files if name in ("truncate", "rm") else files[-1:]
+            hit = files if name in ("truncate", "rm") else files[-1:]
+        else:
+            hit = []
+        out += [in_cwd(cwd, f) for f in hit]
     return out
 
 
@@ -202,9 +271,9 @@ def check_bash(cmd: str, root: Path) -> None:
         block("Merge vào main là cổng duyệt của người. Hãy để người dùng merge PR.", "merge")
     if re.search(r"dk-state\.sh\s+approve\b", flat):
         block("Phê duyệt cổng (spec/contract) chỉ do người chạy bằng /dk:approve.", "approve")
+    if git_push_forced(cmd):
+        block("Không force-push. Dùng --force-with-lease trên nhánh feature nếu thật cần.", "force_push")
     if re.search(r"\bgit\s+push\b", flat):
-        if re.search(r"\s(--force(?!-with-lease)|-f)\b", flat):
-            block("Không force-push. Dùng --force-with-lease trên nhánh feature nếu thật cần.", "force_push")
         push_args = [a.strip("'\"") for a in re.split(r"[;&|]", flat.split("git push", 1)[1])[0].split()]
         if any(re.fullmatch(r"(\+?[\w/.-]*:)?(refs/heads/)?(main|master)", a) for a in push_args):
             block("Không push thẳng lên main. Mở PR qua /dk:review.", "push_main")
@@ -442,10 +511,76 @@ def rel_path(path: str, root: Path) -> str:
     p = Path(path)
     if not p.is_absolute():
         return path[2:] if path.startswith("./") else path
+    p = p.resolve()
+    # a linked worktree (../app-fix, .claude/worktrees/x) has its own .dk/ - match paths relative to the nearest one
+    for parent in p.parents:
+        if (parent / ".dk").is_dir():
+            return str(p.relative_to(parent))
     try:
-        return str(p.resolve().relative_to(root.resolve()))
+        return str(p.relative_to(root.resolve()))
     except ValueError:
         return str(p)
+
+
+READERS = {"grep", "egrep", "rg", "ag", "cat", "less", "more", "head", "tail", "sed", "awk", "find", "tree", "bat", "nl",
+           "strings", "xxd", "od", "diff", "wc"}
+PATTERN_FIRST = {"grep", "egrep", "rg", "ag", "sed", "awk"}  # first positional is a pattern/script, not a path
+TESTISH = re.compile(r"test|spec|setup|conftest|fixture|mock")
+
+
+def test_author_reads_prod(cmd: str, root: Path, sc):
+    """The word through which a test-author shell command reads production code, or None.
+    A production *file* named anywhere (also inside a python heredoc) counts. A directory counts only as the path
+    argument of a reading command (grep -r x worker, cat worker/src/*.ts) unless that command is limited to test files
+    (find -name '*.test.*', grep --include=*.test.ts). `cd worker`, `npm --prefix worker run test | tail`, `ls web/src`
+    and grep/sed patterns read no code: 230 of 249 blocks in lau-meme (2026-10) were those, and test-author could not
+    run its own tests."""
+    def rel(cwd, w):
+        return rel_path(in_cwd(cwd, w), root).rstrip("/") or "."
+
+    cwds = {"."}
+    for cwd, words, _ in shell_segments(cmd):
+        cwds.add(cwd)
+        if not words or Path(words[0]).name not in READERS:
+            continue
+        name, args = Path(words[0]).name, words[1:]
+        paths, names, flagged, skip = [], [], False, False
+        for i, w in enumerate(args):
+            if skip:
+                skip = False
+            elif w in ("-e", "-f", "--regexp", "--file"):
+                flagged, skip = True, True
+            elif w in ("-name", "-iname", "-path", "-ipath") and name == "find":
+                if i == 0 or args[i - 1] not in ("-not", "!"):  # -not -path './node_modules/*' only excludes
+                    names.append(args[i + 1] if i + 1 < len(args) else "")
+                skip = True
+            elif w.startswith("--include="):
+                names.append(w.split("=", 1)[1])
+            elif w in ("-exec", "-execdir", "-delete"):
+                names.append("")  # find that runs something on what it finds: not a listing
+            elif not w.startswith("-"):
+                paths.append(w)
+        if name in PATTERN_FIRST and not flagged and paths:
+            paths = paths[1:]
+        only_tests = bool(names) and all(TESTISH.search(n) for n in names)
+        for w in paths:
+            if "*" in w:
+                if TESTISH.search(w.rsplit("/", 1)[-1]):
+                    continue
+                w = w.split("*")[0] or "."
+            r = rel(cwd, w)
+            is_dir = (root / r).is_dir() or r in sc.roots
+            if is_dir and only_tests:
+                continue
+            if r in sc.roots or sc.prod_code(r):
+                return w
+    for tok in re.findall(r"[\w./-]+", code_only(cmd)):
+        for cwd in cwds:
+            r = rel(cwd, tok)
+            f = root / r
+            if sc.prod_code(r) and (f.is_file() or ("/" in tok and not f.exists() and Path(r).suffix)):
+                return tok
+    return None
 
 
 def check_agent(role: str, tool: str, inp: dict, root: Path) -> None:
@@ -453,12 +588,10 @@ def check_agent(role: str, tool: str, inp: dict, root: Path) -> None:
     if tool == "Bash":
         cmd = inp.get("command", "")
         if role == "test-author":
-            reads = re.search(r"\b(grep|rg|ag|cat|less|more|head|tail|sed|awk|find|tree|bat|nl)\b", code_only(cmd))
-            for tok in re.findall(r"[\w./-]+", cmd):
-                r = rel_path(tok, root).rstrip("/")
-                if sc.prod_code(r) or (reads and r in sc.roots):
-                    block(f"test-author viết test hộp đen - không đọc code production ({tok}). Dùng docs/api/openapi.yaml, "
-                          "migration và test có sẵn.", "agent_blind")
+            hit = test_author_reads_prod(cmd, root, sc)
+            if hit:
+                block(f"test-author viết test hộp đen - không đọc code production ({hit}). Dùng docs/api/openapi.yaml, "
+                      "migration và test có sẵn; liệt kê file test bằng Glob (vd. `web/src/**/*.test.tsx`).", "agent_blind")
         if role in ("reviewer", "doc-sync") and REPO_CHANGING_GIT.search(code_only(cmd)):
             block(f"{role} không commit/đổi nhánh/sửa cây làm việc - phiên chính làm việc đó.", "agent_git")
         for target in shell_write_targets(cmd):
@@ -500,6 +633,7 @@ def main() -> None:
     inp = payload.get("tool_input") or {}
     _CTX.update(cwd=str(root), tool=payload.get("tool_name") or mode)
     role = agent_role(payload)
+    _CTX["agent"] = role
     if role and (root / ".dk").is_dir():
         check_agent(role, "Bash" if mode == "bash" else payload.get("tool_name", ""), inp, root)
     if mode == "bash":

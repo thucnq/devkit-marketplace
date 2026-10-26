@@ -61,7 +61,7 @@ Sau dự án: chạy `/dk:retro`, rồi mang `*-retro.md` + `*-metrics.json` và
 
 | Yêu cầu | Cơ chế | Tốn token |
 |---|---|---|
-| Mọi AC bắt buộc có test | `ac-trace.py` (review/ship: mọi AC; CI: `--started-only` - chỉ tính năng đã bắt đầu build) | 0 |
+| Mọi AC bắt buộc có test | `ac-trace.py` (CI: `--started-only` - chỉ tính năng đã bắt đầu build; `dk-check full`: java mọi AC, stack profile tính năng của nhánh + `--started-only`) | 0 |
 | Cách ly tenant | Postgres RLS + test `AC-*-TENANT` bắt buộc | 0 |
 | Kiến trúc | ArchUnit | 0 |
 | Bí mật không lọt | gitleaks / regex trong hook commit; hook chặn agent đọc `.env` | 0 |
@@ -82,6 +82,16 @@ Sau dự án: chạy `/dk:retro`, rồi mang `*-retro.md` + `*-metrics.json` và
 - Mỗi giai đoạn để lại file → `/clear` thoải mái giữa các giai đoạn.
 
 Đo thử trên brief "báo cáo vân tay" (Sonnet, tính theo giá API để so sánh): `/dk:spec` 9 lượt ≈ $0.77, `/dk:estimate` 6 lượt ≈ $0.27.
+
+## Thay đổi v0.7.5 - bài học từ log lau-meme (19-26/10/2026)
+Số liệu từ `/dk:retro` của lau-meme: 9.667 sự kiện, 58 phiên, 1,45 tỷ token, hook chặn 295 lần.
+- **Guard không còn chặn nhầm test-author** (195 lần `agent_blind`, ~90% là nhầm, nên test của nó luôn tới tay mà chưa chạy). Lệnh shell được tách theo nháy và theo `cd`: `cd worker`, `npm --prefix worker run test | tail`, `uv run --directory pipeline pytest`, `ls web/src`, mẫu tìm của grep/sed, `find -name '*.test.*'`, `grep --include=*.test.ts` đều được phép; đọc file production hay grep cả thư mục `src` vẫn bị chặn. Chạy lại 234 lệnh thật từng bị chặn: 223 nay qua, 11 còn lại là chặn đúng.
+- Test setup nằm cạnh code (`web/src/test/setup.ts`, `__mocks__/`) là phần của test, test-author đọc/ghi được. Đường dẫn trong worktree (`../app-fix`, `.claude/worktrees/x`) được so với `.dk/` của chính worktree đó.
+- `>` trong chuỗi nháy (awk `$2 >= 3`, thân heredoc python) không còn bị coi là ghi file; `sed -i 's/a/b/; s/c/d/'` không bị cắt ở `;`; `cd x && cat >> test.py` tính theo thư mục sau `cd`. Force-push chỉ xét đúng lệnh `git push` (văn bản nhắc `git push` cạnh `gh api -f` không còn bị chặn).
+- `dk-check full` có stack profile: AC traceability = tính năng của nhánh (đủ mọi AC) + các tính năng đã bắt đầu (`--started-only`, giống CI). Trước đây cổng này đỏ 29/31 lần ở `/dk:review` vì tính năng đã spec trên main nhưng đang build ở nhánh khác, khiến agent quen bỏ qua dòng đỏ. Dự án Java giữ nguyên như 0.6.1.
+- `/dk:review`: chạy `dk-check full` ở nền song song với reviewer, mở PR ngay khi APPROVE (sửa lỗi check sau bằng commit tiếp theo); PR luôn `--base main`; `gh pr edit` hỏng do GitHub bỏ Projects (classic) thì dùng `gh api -X PATCH`. `/dk:build`: đưa test-author giao diện cần gọi, tự chạy typecheck/lint/test trước RED, chỉ chạy bộ test đã lọc theo tính năng.
+- Golden path py-ts-cloudflare: `testTimeout: 30_000` cho worker và web (Miniflare D1 ~66 ms/truy vấn trên WSL, 110 lần quá hạn 5 s), `.prettierrc.json` cho web/worker theo đúng style (không có file này `prettier --write` đổi cả file sang dấu nháy kép), `.dk/log/*.jsonl merge=union` trong `.gitattributes` (log không còn xung đột khi gộp nhánh). Dự án cũ: chép ba thay đổi này vào dự án.
+- `dk-report.py`: liệt kê lỗi tool hay gặp nhất (thay vì 3 mẫu đầu tiên), hook chặn theo subagent, số dòng log hỏng; đếm cả lần chạy `pytest`.
 
 ## Thay đổi v0.7.4
 - Task nền chạy quá 10 phút phải được đánh giá lại, không được lặng lẽ chờ tiếp. Agent kiểm tiến trình còn sống không, output còn tăng không, lần trước lệnh đó mất bao lâu, rồi báo người dùng một dòng: vẫn chạy bình thường (dự kiến xong lúc nào) hoặc bị treo (dừng, chạy lại hẹp hơn). Quy tắc nằm trong `/dk:build`, `/dk:review`, `/dk:ship` và `CLAUDE.md` mẫu của hai golden path. Dự án cũ: chép dòng "Background tasks" trong `templates/<stack>/CLAUDE.md` vào `CLAUDE.md` của dự án.

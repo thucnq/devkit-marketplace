@@ -15,3 +15,5 @@ mvnw        text eol=lf
 *.ico       binary
 *.jar       binary
 *.woff2     binary
+# Log dk: mỗi nhánh chỉ nối thêm dòng - gộp nhánh lấy cả hai phía, không xung đột (lau-meme 2026-10: 4 commit gỡ xung đột log)
+.dk/log/*.jsonl merge=union

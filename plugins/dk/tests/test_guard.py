@@ -66,6 +66,7 @@ class GuardTest(unittest.TestCase):
         for cmd in [
             "cat .env", "cat deploy/envs/prod.env", "gh pr merge 5", "git push origin main",
             'git push origin "main"', 'bash -c "git push origin main"', "git push --force",
+            "git push -f origin feat/x", "git -C . push -uf origin feat/x", 'bash -c "git push --force origin feat/x"',
             "bash <<'EOF'\ngit push origin main\nEOF", "./deploy.sh prod", "deploy.sh 'prod'",
             "ssh deploy@prod.khach.vn", "bash scripts/dk-state.sh approve spec", "git commit --no-verify -m x",
             "rm -rf /", "sed -i 's/a/b/' frontend/eslint.config.js", "echo '{}' > .gitleaks.toml",
@@ -85,6 +86,9 @@ class GuardTest(unittest.TestCase):
             "echo 'nhắc: gh pr merge do người làm'", "./deploy.sh staging", "ls frontend/eslint.config.js",
             "cat .gitleaks.toml",
             "pgrep -af vitest | head", "pgrep -f pytest; echo done", 'echo "until pgrep -f x"',
+            # a python script that edits a skill mentioning `git push` and `gh api -f base=main` (lau-meme 2026-10-26)
+            "python3 - <<'EOF'\ns = 'git push -u origin HEAD, then gh api -X PATCH pulls/1 -f base=main'\nEOF",
+            "git push -u origin HEAD && gh api -X PATCH repos/o/r/pulls/1 -f base=main",
         ]:
             with self.subTest(cmd=cmd):
                 self.assertEqual(self.bash(cmd), 0)
