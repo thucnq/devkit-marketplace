@@ -29,5 +29,7 @@
     <spotless.version>2.44.5</spotless.version>
     <spotbugs-plugin.version>4.9.3.0</spotbugs-plugin.version>
     <pmd-plugin.version>3.26.0</pmd-plugin.version>
+    <!-- Boot 3.5.6 manages 1.21.3, which speaks Docker API 1.32; hosted runners now require >= 1.40 -->
+    <testcontainers.version>1.21.4</testcontainers.version>
   </properties>
 </project>
