@@ -232,5 +232,103 @@ class GenErdTest(unittest.TestCase):
             self.assertEqual(p.returncode, 0, p.stdout)
 
 
+class UnfinishedTest(unittest.TestCase):
+    """dk-unfinished.py: each sign of abandoned work comes with its evidence; a clean project prints nothing."""
+
+    def _repo(self, tmp):
+        remote, r = Path(tmp) / "remote.git", Path(tmp) / "app"
+        sh(tmp, "git", "init", "-q", "--bare", "-b", "main", str(remote), check=True)
+        r.mkdir()
+        for c in (["init", "-q", "-b", "main"], ["config", "user.email", "t@t"], ["config", "user.name", "t"],
+                  ["remote", "add", "origin", str(remote)]):
+            sh(r, "git", *c, check=True)
+        (r / ".dk").mkdir()
+        (r / ".dk/state.md").write_text("# dk state\nphase: build\n")
+        (r / "docs/api").mkdir(parents=True)
+        (r / "docs/api/openapi.yaml").write_text("openapi: 3.1.0\n")
+        self._commit(r, "init")
+        sh(r, "git", "push", "-q", "-u", "origin", "main", check=True)
+        sh(r, "git", "remote", "set-head", "origin", "main", check=True)
+        return r
+
+    def _commit(self, r, msg, f="f.txt"):
+        with open(r / f, "a") as fh:
+            fh.write(msg + "\n")
+        sh(r, "git", "add", "-A", check=True)
+        sh(r, "git", "commit", "-q", "-m", msg, check=True)
+        return sh(r, "git", "rev-parse", "--short", "HEAD").stdout.strip()
+
+    def _run(self, r):
+        p = sh(r, "python3", str(SCRIPTS / "dk-unfinished.py"), "--max", "20")
+        self.assertEqual(p.returncode, 0, p.stderr)
+        return p.stdout
+
+    def test_clean_project_prints_nothing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            r = self._repo(tmp)
+            (r / ".dk/log").mkdir()
+            (r / ".dk/log/t.jsonl").write_text("{}\n")  # changes under .dk/ are bookkeeping, not work
+            self.assertEqual(self._run(r), "")
+
+    def test_branch_signs_quote_commits(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            r = self._repo(tmp)
+            sh(r, "git", "switch", "-q", "-c", "feat/local", check=True)
+            local = self._commit(r, "feat: chưa push")
+            sh(r, "git", "switch", "-q", "-c", "feat/pushed", "main", check=True)
+            pushed = self._commit(r, "feat: đã push")
+            sh(r, "git", "push", "-q", "-u", "origin", "feat/pushed", check=True)
+            # PR #7 merged, then one more commit stayed on the branch (the PR #135 case)
+            sh(r, "git", "switch", "-q", "-c", "fix/late", "main", check=True)
+            self._commit(r, "fix: phần đầu")
+            sh(r, "git", "switch", "-q", "main", check=True)
+            sh(r, "git", "merge", "-q", "--no-ff", "-m", "Merge pull request #7 from o/fix/late", "fix/late", check=True)
+            sh(r, "git", "push", "-q", "origin", "main", check=True)
+            sh(r, "git", "switch", "-q", "fix/late", check=True)
+            late = self._commit(r, "ci: commit đến sau")
+            # a branch whose only commit was cherry-picked into main is done
+            sh(r, "git", "switch", "-q", "-c", "fix/picked", "main", check=True)
+            picked = self._commit(r, "fix: đã cherry-pick", f="g.txt")
+            sh(r, "git", "switch", "-q", "main", check=True)
+            sh(r, "git", "cherry-pick", picked, check=True)
+            sh(r, "git", "push", "-q", "origin", "main", check=True)
+            out = self._run(r)
+            self.assertIn("nhánh feat/local: 1 commit chưa push. Bằng chứng: commit cuối", out)
+            self.assertIn(f"{local} feat: chưa push", out)
+            self.assertIn("nhánh feat/pushed: 1 commit đã push nhưng chưa vào origin/main (kiểm PR)", out)
+            self.assertIn(pushed, out)
+            self.assertIn("nhánh fix/late: PR #7 đã merge", out)
+            self.assertIn(f"{late} ci: commit đến sau", out)
+            self.assertNotIn("fix/picked", out)
+
+    def test_check_evidence_gate_review_and_uncommitted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            r = self._repo(tmp)
+            sh(r, "git", "switch", "-q", "-c", "feat/x", check=True)
+            approved = sh(r, "git", "rev-parse", "--short", "HEAD").stdout.strip()
+            (r / ".dk/state.md").write_text(f"phase: build\ncontract: approved 2026-10-27 by t at {approved}\n")
+            drift = self._commit(r, "design: đổi contract sau khi duyệt", f="docs/api/openapi.yaml")
+            head = sh(r, "git", "rev-parse", "--short", "HEAD").stdout.strip()
+            (r / ".dk/check-report.md").write_text(
+                f"FAIL · quick · 2026-10-27 12:50:27 · {head}\n\n| Check | Result |\n|---|---|\n"
+                "| web lint | PASS |\n| web coverage | **FAIL** |\n")
+            (r / ".dk/evidence").mkdir()
+            (r / ".dk/evidence/cty.json").write_text(json.dumps({"red": {"ts": "2026-10-27T11:00", "commit": "abc1234"}}))
+            (r / ".dk/log").mkdir()
+            (r / ".dk/log/t.jsonl").write_text(json.dumps(
+                {"ts": "2026-10-27T12:50:27+00:00", "branch": "feat/x", "cmd": "dk:review", "ev": "prompt"}) + "\n")
+            (r / "src.py").write_text("x = 1\n")
+            out = self._run(r)
+            self.assertIn("thay đổi chưa commit. Bằng chứng: git status: ?? src.py", out)
+            self.assertIn('.dk/check-report.md: "FAIL · quick · 2026-10-27 12:50:27', out)
+            self.assertIn("đỏ: web coverage", out)
+            self.assertNotIn("HEAD đã đổi", out)
+            self.assertIn("tính năng cty: có RED, chưa có GREEN. Bằng chứng: .dk/evidence/cty.json: red lúc 2026-10-27T11:00", out)
+            self.assertIn(f"docs/api/openapi.yaml đổi sau khi duyệt cổng contract ({approved}). Bằng chứng: {drift}", out)
+            self.assertIn("/dk:review trên nhánh feat/x chưa APPROVE. Bằng chứng: .dk/log: dk:review bắt đầu lúc 2026-10-27T12:50:27", out)
+            (r / ".dk/state.md").write_text("phase: build\nreview-feat-x: approved\n")
+            self.assertNotIn("/dk:review trên nhánh feat/x", self._run(r))
+
+
 if __name__ == "__main__":
     unittest.main()

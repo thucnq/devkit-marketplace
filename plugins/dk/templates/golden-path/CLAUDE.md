@@ -27,3 +27,4 @@ Gates are enforced by hooks; state lives in `.dk/state.md` (edit only via dk-sta
 - Git hooks live in `.githooks/` (`git config core.hooksPath .githooks`); never bypass them.
 - Build evidence: RED before implementing, GREEN after (`dk-evidence.py`, `.dk/evidence/<feature>.json` is committed).
 - Background tasks (tests, checks, deploys): run the command itself in the background and wait for its notification, never an `until/while pgrep -f` loop. One running over 10 minutes is re-evaluated: is the process alive, is output growing, how long did it take last time - tell the human, stop and re-run narrower if stuck.
+- Unfinished work: when the human says "tiếp tục việc đang dở" or you claim something was left unfinished, base it on the "Dấu hiệu việc bỏ dở" lines from session start (or `python3 <plugin>/scripts/dk-unfinished.py`) and quote their evidence (branch, commit, check report line, log time) - never from memory alone.

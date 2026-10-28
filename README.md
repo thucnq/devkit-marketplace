@@ -83,6 +83,12 @@ Sau dự án: chạy `/dk:retro`, rồi mang `*-retro.md` + `*-metrics.json` và
 
 Đo thử trên brief "báo cáo vân tay" (Sonnet, tính theo giá API để so sánh): `/dk:spec` 9 lượt ≈ $0.77, `/dk:estimate` 6 lượt ≈ $0.27.
 
+## Thay đổi v0.7.6 - chỉ ra việc bỏ dở kèm bằng chứng
+Ở lau-meme, "tiếp tục việc đang dở" sau `/clear` buộc agent tự lục log mới biết nhánh `feat/feedback` có 4 commit đã push mà chưa có PR và lần `/dk:review` trước dừng ở check FAIL; PR #135 cũng được merge trong khi 2 commit sửa workflow còn nằm lại trên nhánh, làm `main` đỏ mà không ai thấy.
+- `scripts/dk-unfinished.py` (không tốn token, chỉ đọc git và `.dk/`, < 1 s): in từng dấu hiệu bỏ dở kèm bằng chứng. Các dấu hiệu: thay đổi chưa commit ngoài `.dk/`; nhánh còn commit chưa vào nhánh chính (chưa push, đã push mà chưa merge, hoặc PR đã merge nhưng còn commit đến sau; commit đã cherry-pick sang nhánh chính không tính); lần `dk-check` gần nhất FAIL (kèm dòng đầu báo cáo và các dòng đỏ, cảnh báo khi HEAD đã đổi); có RED mà chưa có GREEN; file spec/contract đổi sau khi duyệt cổng; `/dk:review` đã bắt đầu mà nhánh chưa `review-<nhánh>: approved`. Nhánh không có commit trong 14 ngày bị bỏ qua (`--days`).
+- `session-start.sh` chạy script này, nên đầu mỗi phiên (kể cả sau `/clear`) có mục "Dấu hiệu việc bỏ dở" với bằng chứng.
+- `CLAUDE.md` mẫu của hai golden path thêm quy tắc "Unfinished work": khi nói việc nào bỏ dở hoặc được yêu cầu làm tiếp, agent dựa vào các dòng này và trích đúng bằng chứng (nhánh, commit, dòng báo cáo check, thời điểm trong log), không đoán theo trí nhớ. Dự án cũ: chép dòng "Unfinished work" trong `templates/<stack>/CLAUDE.md` vào `CLAUDE.md` của dự án.
+
 ## Thay đổi v0.7.5 - bài học từ log lau-meme (19-26/10/2026)
 Số liệu từ `/dk:retro` của lau-meme: 9.667 sự kiện, 58 phiên, 1,45 tỷ token, hook chặn 295 lần.
 - **Guard không còn chặn nhầm test-author** (195 lần `agent_blind`, ~90% là nhầm, nên test của nó luôn tới tay mà chưa chạy). Lệnh shell được tách theo nháy và theo `cd`: `cd worker`, `npm --prefix worker run test | tail`, `uv run --directory pipeline pytest`, `ls web/src`, mẫu tìm của grep/sed, `find -name '*.test.*'`, `grep --include=*.test.ts` đều được phép; đọc file production hay grep cả thư mục `src` vẫn bị chặn. Chạy lại 234 lệnh thật từng bị chặn: 223 nay qua, 11 còn lại là chặn đúng.
